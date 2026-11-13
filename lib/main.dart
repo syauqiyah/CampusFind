@@ -16,20 +16,49 @@ Future<void> main() async {
 
 ThemeData _theme(Brightness b) {
   final dark = b == Brightness.dark;
-  final bar = dark ? const Color(0xFF0F1F17) : Colors.white;
-  TextTheme baseText = ThemeData(brightness: b).textTheme;
+  final bar = dark ? const Color(0xFF111A2E) : Colors.white;
+  final bg = dark ? const Color(0xFF090F1D) : const Color(0xFFF6F8FB);
+
+  String? bodyFont;
+  String? headingFont;
   try {
-    baseText = GoogleFonts.interTextTheme(baseText);
+    bodyFont = GoogleFonts.instrumentSans().fontFamily;
+    headingFont = GoogleFonts.bricolageGrotesque().fontFamily;
   } catch (_) {}
 
   return ThemeData(
     useMaterial3: true,
     brightness: b,
-    colorScheme: ColorScheme.fromSeed(seedColor: kGreen, brightness: b),
-    scaffoldBackgroundColor: dark ? const Color(0xFF0A1510) : const Color(0xFFF3FAF5),
-    textTheme: baseText,
-    appBarTheme: AppBarTheme(backgroundColor: bar, elevation: 0, scrolledUnderElevation: 0),
-    navigationBarTheme: NavigationBarThemeData(backgroundColor: bar, indicatorColor: dark ? kGreen.withOpacity(.35) : kLeaf),
+    fontFamily: bodyFont,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF10B981),
+      brightness: b,
+      surface: bar,
+    ),
+    scaffoldBackgroundColor: bg,
+    cardTheme: CardThemeData(
+      color: bar,
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: dark ? 0.45 : 0.06),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: bar,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: TextStyle(
+        fontFamily: headingFont ?? bodyFont,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: dark ? Colors.white : const Color(0xFF0F172A),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: bar,
+      indicatorColor: dark
+          ? const Color(0xFF10B981).withValues(alpha: 0.25)
+          : const Color(0xFF10B981).withValues(alpha: 0.15),
+    ),
   );
 }
 
@@ -37,18 +66,20 @@ class CampusFindApp extends StatelessWidget {
   const CampusFindApp({super.key});
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: settings,
-        builder: (context, _) => MaterialApp(
-          title: 'CampusFind',
-          debugShowCheckedModeBanner: false,
-          theme: _theme(Brightness.light),
-          darkTheme: _theme(Brightness.dark),
-          themeMode: settings.mode,
-          builder: (ctx, child) => MediaQuery(
-            data: MediaQuery.of(ctx).copyWith(textScaler: TextScaler.linear(settings.fontScale)),
-            child: child!,
-          ),
-          home: const SplashScreen(),
+    listenable: settings,
+    builder: (context, _) => MaterialApp(
+      title: 'CampusFind',
+      debugShowCheckedModeBanner: false,
+      theme: _theme(Brightness.light),
+      darkTheme: _theme(Brightness.dark),
+      themeMode: settings.mode,
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+          textScaler: TextScaler.linear(settings.fontScale),
         ),
-      );
+        child: child!,
+      ),
+      home: const SplashScreen(),
+    ),
+  );
 }

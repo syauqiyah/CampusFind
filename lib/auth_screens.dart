@@ -5,65 +5,14 @@ import 'core.dart';
 import 'guard_screens.dart';
 import 'student_screens.dart';
 import 'widgets.dart';
+import 'splash_screen.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final dark = isDark(context);
-    final cardBg = dark ? Colors.black.withOpacity(0.40) : Colors.white.withOpacity(0.92);
-    final cardBorder = dark ? Colors.white.withOpacity(0.25) : kGreen.withOpacity(0.3);
-    final titleColor = dark ? Colors.white : kDeep;
-    final subColor = dark ? Colors.white70 : Colors.black87;
-
-    return Scaffold(
-      body: Stack(fit: StackFit.expand, children: [
-        CustomPaint(painter: CampusPainter(night: dark, bx: .5, bs: .6, sunX: .85, groundY: .8)),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(children: [
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(.15), blurRadius: 14)]),
-                child: const AppLogo(size: 104),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cardBorder, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(dark ? 0.2 : 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text('CampusFind', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: titleColor, shadows: dark ? skyShadow : null)),
-                    const SizedBox(height: 2),
-                    Text('Universitas Negeri Surabaya', style: TextStyle(color: dark ? Colors.white : kGreen, letterSpacing: 1, fontWeight: FontWeight.w700, shadows: dark ? skyShadow : null)),
-                    const SizedBox(height: 6),
-                    Text('Temukan kembali barangmu di kampus.', style: TextStyle(fontSize: 13, color: subColor, shadows: dark ? skyShadow : null)),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: cardC(context).withOpacity(.92), borderRadius: BorderRadius.circular(18)),
-                child: PrimaryButton('Mulai', () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChooseLoginScreen()))),
-              ),
-            ]),
-          ),
-        ),
-      ]),
+    return const CampusSplashScreen(
+      nextScreen: ChooseLoginScreen(),
     );
   }
 }

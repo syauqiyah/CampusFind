@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'cartoon.dart';
 import 'core.dart';
@@ -14,6 +15,7 @@ Widget detailFor(Report r) => (store.guard || r.owner == store.email) ? FullDeta
 void openReport(BuildContext c, Report r) => Navigator.push(c, MaterialPageRoute(builder: (_) => detailFor(r)));
 
 const _grid = SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: .62);
+String? requiredField(String? v) => (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null;
 
 // ------------------------------------------------------------------ shell
 class StudentShell extends StatefulWidget {
@@ -99,147 +101,123 @@ class _StudentHomeState extends State<StudentHome> {
   Widget _header(BuildContext context) {
     final dark = isDark(context);
     final name = store.name.isEmpty ? 'Warga UNESA' : store.name;
-
-    // Background badge transparan adaptif agar teks terpisah kontras dari ilustrasi
-    final badgeBg = dark
-        ? Colors.black.withValues(alpha: 0.50)
-        : Colors.black.withValues(alpha: 0.35);
-    final badgeBorder = dark
-        ? Colors.white.withValues(alpha: 0.20)
-        : Colors.white.withValues(alpha: 0.35);
+    String? brandFont;
+    try {
+      brandFont = GoogleFonts.syne().fontFamily;
+    } catch (_) {}
 
     return CartoonHeader(
-      height: 195,
-      bx: .82,
-      bs: .45,
-      groundY: .92,
-      sunX: .55,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Lapisan Gradasi Adaptif (Gradient Scrim) agar teks selalu kontras
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 110,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    dark
-                        ? Colors.black.withValues(alpha: 0.65)
-                        : Colors.black.withValues(alpha: 0.40),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 2. Konten Header
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      height: 320,
+      bx: .5,
+      bs: .52,
+      groundY: .80,
+      sunX: .82,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Brand Logo & Title di atas langit
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
+                  const AppLogo(size: 50),
+                  const SizedBox(width: 11),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+                          color: dark
+                              ? const Color(0xFF0F172A).withValues(alpha: 0.68)
+                              : Colors.white.withValues(alpha: 0.76),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: dark
+                                ? const Color(0xFF94A3B8).withValues(alpha: 0.25)
+                                : Colors.white.withValues(alpha: 0.85),
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withValues(alpha: dark ? 0.32 : 0.08),
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: const AppLogo(size: 32),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'CampusFind',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
-                              shadows: [
-                                Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1.5)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Campus',
+                                  style: TextStyle(
+                                    fontFamily: brandFont,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.6,
+                                    height: 1.0,
+                                    color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0B357A),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    'Find',
+                                    style: TextStyle(
+                                      fontFamily: brandFont,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.3,
+                                      height: 1.0,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                          Text(
-                            'UNESA Lost & Found',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.9),
-                              shadows: const [
-                                Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                              ],
+                            const SizedBox(height: 4),
+                            Text(
+                              'Halo, $name! ✨',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  // Sapaan Warga UNESA dengan Capsule Pill Halus (Kompak & Pas di HP)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: badgeBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: badgeBorder, width: 1),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Halo, $name! 👋',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Temukan atau laporkan barangmu di UNESA.',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.92),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -285,7 +263,6 @@ class _StudentHomeState extends State<StudentHome> {
 
       return CustomScrollView(slivers: [
         SliverToBoxAdapter(child: _header(context)),
-        // Banner Pos Satpam telah dihilangkan agar tampilan lapang dan bersih
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -540,7 +517,6 @@ class ScanGuardQrScreen extends StatefulWidget {
   final String kind;
   final String targetId;
   const ScanGuardQrScreen({super.key, required this.kind, required this.targetId});
-
   @override
   State<ScanGuardQrScreen> createState() => _ScanGuardQrScreenState();
 }
@@ -572,14 +548,12 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
   Future<void> _handleScan(String raw) async {
     if (busy || success) return;
     busy = true;
-
     final s = raw.trim();
     if (s.startsWith('CF|POS|')) {
       final parts = s.split('|');
       if (parts.length == 4) {
         final posName = parts[2];
         final token = parts[3];
-
         final err = store.verifyByPosToken(widget.kind, widget.targetId, posName, token);
         if (err != null) {
           _snack(err);
@@ -598,7 +572,6 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
     } else {
       _snack('QR tidak dikenali. Pindai QR Barcode yang ada pada HP Satpam.');
     }
-
     busy = false;
   }
 
@@ -607,7 +580,6 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
     final isR = widget.kind == 'R';
     final targetPos = isR ? (store.find(widget.targetId)?.pos ?? 'Pos Satpam') : (store.find(store.findClaim(widget.targetId)?.reportId ?? '')?.pos ?? 'Pos Satpam');
     final title = isR ? 'Pindai QR Satpam (Laporan)' : 'Pindai QR Satpam (Klaim)';
-
     final dark = isDark(context);
     final bgCol = dark ? kDeep : softC(context);
     final appBg = dark ? kDeep : cardC(context);
@@ -692,7 +664,6 @@ class _SearchScreenState extends State<SearchScreen> {
   static const days = ['Semua', 'Hari ini', '7 hari terakhir', '30 hari terakhir'];
   String q = '', day = 'Semua';
   String? cat, loc, type, pos;
-
   int get active => [day != 'Semua', cat != null, loc != null, type != null, pos != null].where((e) => e).length;
 
   bool _match(Report r) {
@@ -830,7 +801,6 @@ class _SearchScreenState extends State<SearchScreen> {
 class PublicDetailScreen extends StatelessWidget {
   final Report r;
   const PublicDetailScreen(this.r, {super.key});
-
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Detail Barang', style: TextStyle(fontSize: 16))),
@@ -935,7 +905,6 @@ class FullDetailScreen extends StatelessWidget {
   final Report r;
   final bool review;
   const FullDetailScreen(this.r, {super.key, this.review = false});
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,
@@ -1025,7 +994,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final all = store.notifs.where((n) => n.owner == store.email).toList();
         final list = all.where((n) => f == 'Semua' || !n.read).toList();
         return ListView(padding: EdgeInsets.zero, children: [
-          BandHeader('Notifikasi', trailing: TextButton(onPressed: () => store.markAllRead(store.email), child: const Text('Tandai dibaca', style: TextStyle(color: Colors.white)))),
+          BandHeader(
+            'Notifikasi',
+            subtitle: 'Info kecocokan & status verifikasi',
+            trailing: TextButton(
+              onPressed: () => store.markAllRead(store.email),
+              child: const Text('Tandai dibaca', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
