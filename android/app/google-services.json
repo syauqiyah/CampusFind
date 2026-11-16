@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "669075448582",
+    "project_id": "campusfind-unesa",
+    "storage_bucket": "campusfind-unesa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:669075448582:android:9ab7ca08e984c3efc2f487",
+        "android_client_info": {
+          "package_name": "com.example.campusfind_unesa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIVLxzBIGjlzllS4lKXFWVsjyl2wMgAdE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

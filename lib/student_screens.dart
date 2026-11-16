@@ -59,7 +59,11 @@ class _StudentShellState extends State<StudentShell> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: kDeep,
-      content: Row(children: [const Icon(Icons.notifications_active, color: Colors.white), const SizedBox(width: 10), Expanded(child: Text(msg, style: const TextStyle(color: Colors.white)))]),
+      content: Row(children: [
+        const Icon(Icons.notifications_active, color: Colors.white),
+        const SizedBox(width: 10),
+        Expanded(child: Text(msg, style: const TextStyle(color: Colors.white))),
+      ]),
       action: SnackBarAction(label: 'Lihat', textColor: Colors.amber, onPressed: () => setState(() => tab = 3)),
     ));
   }
@@ -68,7 +72,13 @@ class _StudentShellState extends State<StudentShell> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: IndexedStack(index: tab, children: [StudentHome(onGo: go), const ReportHub(), const SearchScreen(), const NotificationsScreen(), const ProfileScreen()]),
+    body: IndexedStack(index: tab, children: [
+      StudentHome(onGo: go),
+      const ReportHub(),
+      const SearchScreen(),
+      const NotificationsScreen(),
+      const ProfileScreen(),
+    ]),
     bottomNavigationBar: ListenableBuilder(
       listenable: store,
       builder: (context, _) => FloatingNav(
@@ -238,7 +248,14 @@ class _StudentHomeState extends State<StudentHome> {
             selected: isSel,
             showCheckmark: false,
             avatar: cat == 'Semua' ? null : Icon(catIcons[cat], size: 14, color: isSel ? Colors.white : kGreen),
-            label: Text(cat, style: TextStyle(fontSize: 12, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? Colors.white : (isDark(context) ? Colors.white70 : Colors.black87))),
+            label: Text(
+              cat,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                color: isSel ? Colors.white : (isDark(context) ? Colors.white70 : Colors.black87),
+              ),
+            ),
             backgroundColor: cardC(context),
             selectedColor: kGreen,
             side: BorderSide(color: isSel ? kGreen : borderC(context)),
@@ -380,11 +397,12 @@ class _ReportHubState extends State<ReportHub> {
   );
 }
 
-// -------------------------------------------------------- form laporan
+// -------------------------------------------------------- form laporan (buat & edit)
 class ReportFormScreen extends StatefulWidget {
   final bool found;
   final Report? prefill;
-  const ReportFormScreen({super.key, required this.found, this.prefill});
+  final Report? editing;
+  const ReportFormScreen({super.key, required this.found, this.prefill, this.editing});
   @override
   State<ReportFormScreen> createState() => _ReportFormScreenState();
 }
@@ -398,6 +416,21 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   @override
   void initState() {
     super.initState();
+    final e = widget.editing;
+    if (e != null) {
+      nameC.text = e.name;
+      category = e.category;
+      catC.text = e.categoryCustom;
+      descC.text = e.description;
+      secretC.text = e.secret;
+      area = e.area;
+      detailC.text = e.areaDetail;
+      pos = e.pos;
+      photo = e.photo;
+      date = e.date;
+      dateC.text = fmtDate(date);
+      return;
+    }
     dateC.text = fmtDate(date);
     final p = widget.prefill;
     if (p != null) {
@@ -417,8 +450,36 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
+    final e = widget.editing;
+
+    if (e != null) {
+      final updated = Report(
+        id: e.id,
+        type: e.type,
+        name: nameC.text.trim(),
+        category: category!,
+        categoryCustom: catC.text.trim(),
+        description: descC.text.trim(),
+        secret: secretC.text.trim(),
+        area: area!,
+        areaDetail: detailC.text.trim(),
+        pos: pos!,
+        owner: e.owner,
+        date: date,
+        photo: photo,
+        status: e.status,
+      );
+      await store.updateReport(updated);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Perubahan laporan berhasil disimpan!'), backgroundColor: kGreen),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
     final r = Report(
       id: store.nextReportId(),
       type: widget.found ? ReportType.ditemukan : ReportType.hilang,
@@ -450,9 +511,16 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final found = widget.found;
+    final found = widget.editing != null ? (widget.editing!.type == ReportType.ditemukan) : widget.found;
+    final isEdit = widget.editing != null;
+
     return Scaffold(
-      appBar: AppBar(title: Text(found ? 'Lapor Barang Ditemukan' : 'Lapor Kehilangan', style: const TextStyle(fontSize: 16))),
+      appBar: AppBar(
+        title: Text(
+          isEdit ? 'Edit Laporan (${widget.editing!.id})' : (found ? 'Lapor Barang Ditemukan' : 'Lapor Kehilangan'),
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
       body: Form(
         key: _form,
         child: ListView(padding: const EdgeInsets.all(16), children: [
@@ -480,7 +548,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
           const SizedBox(height: 6),
           PhotoBox(path: photo, onPicked: (p) => setState(() => photo = p)),
           const SizedBox(height: 20),
-          PrimaryButton('Kirim Laporan', _submit),
+          PrimaryButton(isEdit ? 'Simpan Perubahan' : 'Kirim Laporan', _submit),
         ]),
       ),
     );
@@ -492,6 +560,7 @@ class SubmittedScreen extends StatelessWidget {
   final String title, message;
   final Widget next;
   const SubmittedScreen({super.key, required this.title, required this.message, required this.next});
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
@@ -525,6 +594,7 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
   bool busy = false;
   bool success = false;
   String successMsg = '';
+  DateTime? _lastErrorSnack;
   late final MobileScannerController controller;
 
   @override
@@ -543,42 +613,61 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
     super.dispose();
   }
 
-  void _snack(String t) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t)));
+  void _snack(String t) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t)));
+  }
 
   Future<void> _handleScan(String raw) async {
     if (busy || success) return;
-    busy = true;
-    final s = raw.trim();
-    if (s.startsWith('CF|POS|')) {
-      final parts = s.split('|');
-      if (parts.length == 4) {
-        final posName = parts[2];
-        final token = parts[3];
-        final err = store.verifyByPosToken(widget.kind, widget.targetId, posName, token);
-        if (err != null) {
-          _snack(err);
+    setState(() => busy = true);
+
+    try {
+      final s = raw.trim();
+      if (s.startsWith('CF|POS|')) {
+        final parts = s.split('|');
+        if (parts.length == 4) {
+          final posName = parts[2].trim();
+          final token = parts[3].trim();
+          final err = await store.verifyByPosTokenAsync(widget.kind, widget.targetId, posName, token);
+          if (!mounted) return;
+          if (err != null) {
+            final now = DateTime.now();
+            if (_lastErrorSnack == null || now.difference(_lastErrorSnack!).inSeconds >= 3) {
+              _lastErrorSnack = now;
+              _snack(err);
+            }
+          } else {
+            await controller.stop();
+            playAlert();
+            if (!mounted) return;
+            setState(() {
+              success = true;
+              successMsg = widget.kind == 'R'
+                  ? 'Laporanmu telah berhasil diverifikasi oleh Satpam di $posName dan resmi dipublikasikan!'
+                  : 'Klaimmu telah berhasil diverifikasi oleh Satpam di $posName!';
+            });
+          }
         } else {
-          playAlert();
-          setState(() {
-            success = true;
-            successMsg = widget.kind == 'R'
-                ? 'Laporanmu telah berhasil diverifikasi oleh Satpam di $posName dan resmi dipublikasikan!'
-                : 'Klaimmu telah berhasil diverifikasi oleh Satpam di $posName!';
-          });
+          _snack('Format QR Pos Satpam tidak valid.');
         }
       } else {
-        _snack('QR Pos Satpam tidak valid.');
+        _snack('QR tidak dikenali. Pindai QR Barcode yang ada pada HP Satpam.');
       }
-    } else {
-      _snack('QR tidak dikenali. Pindai QR Barcode yang ada pada HP Satpam.');
+    } finally {
+      if (mounted && !success) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) setState(() => busy = false);
+      }
     }
-    busy = false;
   }
 
   @override
   Widget build(BuildContext context) {
     final isR = widget.kind == 'R';
-    final targetPos = isR ? (store.find(widget.targetId)?.pos ?? 'Pos Satpam') : (store.find(store.findClaim(widget.targetId)?.reportId ?? '')?.pos ?? 'Pos Satpam');
+    final targetPos = isR
+        ? (store.find(widget.targetId)?.pos ?? 'Pos Satpam')
+        : (store.find(store.findClaim(widget.targetId)?.reportId ?? '')?.pos ?? 'Pos Satpam');
     final title = isR ? 'Pindai QR Satpam (Laporan)' : 'Pindai QR Satpam (Klaim)';
     final dark = isDark(context);
     final bgCol = dark ? kDeep : softC(context);
@@ -618,22 +707,28 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(children: [
-                Text('Arahkan kamera ke QR Barcode yang tampil pada HP Satpam ($targetPos).', textAlign: TextAlign.center, style: TextStyle(color: textCol, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Arahkan kamera ke QR Barcode yang tampil pada HP Satpam ($targetPos).',
+                    textAlign: TextAlign.center, style: TextStyle(color: textCol, fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('Setelah berhasil memindai, laporanmu akan langsung terverifikasi!', textAlign: TextAlign.center, style: TextStyle(color: subTextCol, fontSize: 11)),
+                Text('Setelah berhasil memindai, laporanmu akan langsung terverifikasi!',
+                    textAlign: TextAlign.center, style: TextStyle(color: subTextCol, fontSize: 11)),
               ]),
             ),
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: dark ? Colors.lightGreenAccent : kGreen, width: 3)),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: dark ? Colors.lightGreenAccent : kGreen, width: 3),
+                ),
                 clipBehavior: Clip.antiAlias,
                 child: MobileScanner(
                   controller: controller,
                   errorBuilder: (c, e, w) => Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text('Izin kamera belum aktif atau kamera tidak tersedia di perangkat ini.', textAlign: TextAlign.center, style: TextStyle(color: subTextCol)),
+                      child: Text('Izin kamera belum aktif atau kamera tidak tersedia di perangkat ini.',
+                          textAlign: TextAlign.center, style: TextStyle(color: subTextCol)),
                     ),
                   ),
                   onDetect: (cap) {
@@ -664,6 +759,7 @@ class _SearchScreenState extends State<SearchScreen> {
   static const days = ['Semua', 'Hari ini', '7 hari terakhir', '30 hari terakhir'];
   String q = '', day = 'Semua';
   String? cat, loc, type, pos;
+
   int get active => [day != 'Semua', cat != null, loc != null, type != null, pos != null].where((e) => e).length;
 
   bool _match(Report r) {
@@ -801,6 +897,7 @@ class _SearchScreenState extends State<SearchScreen> {
 class PublicDetailScreen extends StatelessWidget {
   final Report r;
   const PublicDetailScreen(this.r, {super.key});
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Detail Barang', style: TextStyle(fontSize: 16))),
@@ -828,7 +925,12 @@ class PublicDetailScreen extends StatelessWidget {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Icon(Icons.lock_outline, size: 18, color: kGreen),
               const SizedBox(width: 10),
-              Expanded(child: Text('Detail rahasia, lokasi rinci, dan data pelapor disembunyikan. Hanya pelapor dan satpam yang dapat melihatnya.', style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4))),
+              Expanded(
+                child: Text(
+                  'Detail rahasia, lokasi rinci, dan data pelapor disembunyikan. Hanya pelapor dan satpam yang dapat melihatnya.',
+                  style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4),
+                ),
+              ),
             ]),
           ),
           const SizedBox(height: 22),
@@ -863,7 +965,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   void _submit() {
     if (!_form.currentState!.validate()) return;
-    final c = Claim(id: store.nextClaimId(), reportId: widget.r.id, claimer: store.email, answer: answerC.text.trim(), proof: proofC.text.trim(), photo: photo, date: DateTime.now());
+    final c = Claim(
+      id: store.nextClaimId(),
+      reportId: widget.r.id,
+      claimer: store.email,
+      answer: answerC.text.trim(),
+      proof: proofC.text.trim(),
+      photo: photo,
+      date: DateTime.now(),
+    );
     store.addClaim(c);
     Navigator.pushReplacement(
       context,
@@ -887,8 +997,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
         const SizedBox(height: 4),
         Text('Verifikasi oleh satpam di ${widget.r.pos}.', style: TextStyle(color: mutedC(context), fontSize: 12)),
         const SizedBox(height: 16),
-        AppField('Detail Rahasia Barang', 'Sebutkan ciri tersembunyi yang hanya pemilik tahu',
-            controller: answerC, maxLines: 3, icon: Icons.lock_outline, helper: 'Contoh: stiker di bagian bawah, isi di dalam, goresan khusus. Satpam akan mencocokkannya dengan laporan.', validator: requiredField),
+        AppField(
+          'Detail Rahasia Barang',
+          'Sebutkan ciri tersembunyi yang hanya pemilik tahu',
+          controller: answerC,
+          maxLines: 3,
+          icon: Icons.lock_outline,
+          helper: 'Contoh: stiker di bagian bawah, isi di dalam, goresan khusus. Satpam akan mencocokkannya dengan laporan.',
+          validator: requiredField,
+        ),
         AppField('Bukti Tambahan (opsional)', 'Merek, nomor seri, kapan & di mana hilang', controller: proofC, maxLines: 2),
         const Text('Foto Pendukung (opsional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 6),
@@ -905,30 +1022,64 @@ class FullDetailScreen extends StatelessWidget {
   final Report r;
   final bool review;
   const FullDetailScreen(this.r, {super.key, this.review = false});
+
+  Future<void> _confirmDelete(BuildContext context, Report report) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Laporan?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        content: Text(
+          'Laporan "${report.name}" (${report.id}) yang belum diverifikasi akan dihapus permanen. Lanjutkan?',
+          style: const TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE11D48)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      await store.deleteReport(report.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Laporan berhasil dihapus.'), backgroundColor: Color(0xFFE11D48)),
+      );
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,
     builder: (context, _) {
-      final isOwner = r.owner == store.email && !store.guard;
-      final claims = store.claimsOf(r.id);
+      final current = store.find(r.id) ?? r;
+      final isOwner = current.owner == store.email && !store.guard;
+      final claims = store.claimsOf(current.id);
+
       return Scaffold(
         appBar: AppBar(title: const Text('Detail Laporan', style: TextStyle(fontSize: 16))),
         body: ListView(padding: const EdgeInsets.all(16), children: [
-          ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(r))),
+          ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(current))),
           const SizedBox(height: 14),
-          Text(r.name, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+          Text(current.name, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Wrap(spacing: 6, children: [StatusChip(r.typeLabel), StatusChip(r.status)]),
+          Wrap(spacing: 6, children: [StatusChip(current.typeLabel), StatusChip(current.status)]),
           const Divider(height: 26),
-          SecretBox('DETAIL RAHASIA (hanya pelapor & satpam)', r.secret),
-          InfoRow(Icons.tag, 'Kode Laporan', r.id),
-          InfoRow(Icons.category_outlined, 'Kategori', r.categoryLabel),
-          InfoRow(Icons.description_outlined, 'Deskripsi', r.description),
-          InfoRow(Icons.place_outlined, 'Lokasi', r.area),
-          InfoRow(Icons.pin_drop_outlined, 'Detail Lokasi', r.areaDetail),
-          InfoRow(Icons.calendar_today_outlined, 'Tanggal', fmtDate(r.date)),
-          InfoRow(Icons.local_police_outlined, 'Pos Satpam', r.pos),
-          InfoRow(Icons.person_outline, 'Pelapor', r.owner),
+          SecretBox('DETAIL RAHASIA (hanya pelapor & satpam)', current.secret),
+          InfoRow(Icons.tag, 'Kode Laporan', current.id),
+          InfoRow(Icons.category_outlined, 'Kategori', current.categoryLabel),
+          InfoRow(Icons.description_outlined, 'Deskripsi', current.description),
+          InfoRow(Icons.place_outlined, 'Lokasi', current.area),
+          InfoRow(Icons.pin_drop_outlined, 'Detail Lokasi', current.areaDetail),
+          InfoRow(Icons.calendar_today_outlined, 'Tanggal', fmtDate(current.date)),
+          InfoRow(Icons.local_police_outlined, 'Pos Satpam', current.pos),
+          InfoRow(Icons.person_outline, 'Pelapor', current.owner),
           if (claims.isNotEmpty) ...[
             const SizedBox(height: 10),
             const Text('Klaim pada barang ini', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -938,27 +1089,74 @@ class FullDetailScreen extends StatelessWidget {
                 if (store.guard) Navigator.push(context, MaterialPageRoute(builder: (_) => ClaimReviewScreen(c)));
               }),
           ],
-          const SizedBox(height: 16),
-          if (isOwner && r.status == stWait) PrimaryButton('Pindai QR Pos Satpam untuk Verifikasi', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScanGuardQrScreen(kind: 'R', targetId: r.id)))),
-          if (isOwner && r.type == ReportType.hilang && r.isPublic) ...[
+          const SizedBox(height: 18),
+          if (isOwner && current.status == stWait) ...[
+            PrimaryButton(
+              'Pindai QR Pos Satpam untuk Verifikasi',
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScanGuardQrScreen(kind: 'R', targetId: current.id))),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: kGreen, width: 1.4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportFormScreen(
+                          found: current.type == ReportType.ditemukan,
+                          editing: current,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_rounded, size: 18, color: kGreen),
+                    label: const Text('Edit Laporan', style: TextStyle(fontWeight: FontWeight.w700, color: kGreen)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Color(0xFFE11D48), width: 1.4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => _confirmDelete(context, current),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFE11D48)),
+                    label: const Text('Hapus Laporan', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFE11D48))),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (isOwner && current.type == ReportType.hilang && current.isPublic) ...[
             PrimaryButton('Barang Sudah Ketemu (Tutup Laporan)', () {
-              store.complete(r);
+              store.complete(current);
               Navigator.pop(context);
             }),
           ],
-          if (store.guard && r.status == stWait && !review)
-            Text('Untuk menyetujui, tunjukkan QR Barcode Pos Satpam di HP Anda untuk dipindai pelapor.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: mutedC(context))),
-          if (store.guard && review && r.status == stWait) ...[
+          if (store.guard && current.status == stWait && !review)
+            Text(
+              'Untuk menyetujui, tunjukkan QR Barcode Pos Satpam di HP Anda untuk dipindai pelapor.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: mutedC(context)),
+            ),
+          if (store.guard && review && current.status == stWait) ...[
             PrimaryButton('Setujui & Unggah Laporan', () {
               final m = ScaffoldMessenger.of(context);
-              store.approveReport(r);
+              store.approveReport(current);
               Navigator.pop(context);
               m.showSnackBar(const SnackBar(content: Text('Laporan disetujui dan diunggah')));
             }),
             const SizedBox(height: 10),
             PrimaryButton('Tolak Laporan', () {
               final m = ScaffoldMessenger.of(context);
-              store.rejectReport(r);
+              store.rejectReport(current);
               Navigator.pop(context);
               m.showSnackBar(const SnackBar(content: Text('Laporan ditolak')));
             }, outlined: true),
@@ -1046,6 +1244,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class MatchScreen extends StatelessWidget {
   final AppNotif n;
   const MatchScreen(this.n, {super.key});
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Kecocokan Barang', style: TextStyle(fontSize: 16))),
@@ -1056,7 +1255,12 @@ class MatchScreen extends StatelessWidget {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(Icons.auto_awesome, color: Colors.amber.shade800),
           const SizedBox(width: 10),
-          Expanded(child: Text('Dicocokkan otomatis dari nama, kategori, deskripsi, lokasi, dan tanggal. Pemilik asli tetap diverifikasi satpam lewat detail rahasia.', style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4))),
+          Expanded(
+            child: Text(
+              'Dicocokkan otomatis dari nama, kategori, deskripsi, lokasi, dan tanggal. Pemilik asli tetap diverifikasi satpam lewat detail rahasia.',
+              style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4),
+            ),
+          ),
         ]),
       ),
       const SizedBox(height: 14),
@@ -1080,7 +1284,10 @@ class MatchScreen extends StatelessWidget {
                     Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text('${r.area}\n${r.pos}', style: TextStyle(fontSize: 11, color: mutedC(context))),
                     const SizedBox(height: 8),
-                    ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: s, minHeight: 8, color: kGreen, backgroundColor: borderC(context))),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(value: s, minHeight: 8, color: kGreen, backgroundColor: borderC(context)),
+                    ),
                     const SizedBox(height: 4),
                     Text('Kecocokan ${(s * 100).round()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
                   ]),

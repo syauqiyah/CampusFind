@@ -16,6 +16,233 @@ const List<Color> cardColors = [
   Color(0xFFEF6C00),
 ];
 
+// ------------------------------------------------------------------ micro-interactions & animasi 60 FPS
+class TapScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scaleDown;
+  const TapScale({super.key, required this.child, this.onTap, this.scaleDown = 0.965});
+
+  @override
+  State<TapScale> createState() => _TapScaleState();
+}
+
+class _TapScaleState extends State<TapScale> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: widget.onTap == null ? null : (_) => setState(() => _pressed = true),
+      onTapUp: widget.onTap == null
+          ? null
+          : (_) {
+        setState(() => _pressed = false);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? widget.scaleDown : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class FadeSlideIn extends StatefulWidget {
+  final Widget child;
+  final int index;
+  final Duration duration;
+  const FadeSlideIn({
+    super.key,
+    required this.child,
+    this.index = 0,
+    this.duration = const Duration(milliseconds: 340),
+  });
+
+  @override
+  State<FadeSlideIn> createState() => _FadeSlideInState();
+}
+
+class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: widget.duration);
+    final curve = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _opacity = curve;
+    _slide = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(curve);
+
+    final delay = Duration(milliseconds: (widget.index.clamp(0, 8)) * 45);
+    Future.delayed(delay, () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _opacity,
+    child: SlideTransition(position: _slide, child: widget.child),
+  );
+}
+
+class AnimatedCounter extends StatelessWidget {
+  final int value;
+  final TextStyle? style;
+  final String suffix;
+  const AnimatedCounter(this.value, {super.key, this.style, this.suffix = ''});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.toDouble()),
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, __) => Text('${v.round()}$suffix', style: style),
+    );
+  }
+}
+
+class ShimmerBox extends StatefulWidget {
+  final double width, height, radius;
+  const ShimmerBox({super.key, this.width = double.infinity, required this.height, this.radius = 12});
+
+  @override
+  State<ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<ShimmerBox> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    final base = dark ? const Color(0xFF1A3025) : const Color(0xFFE6EFE9);
+    final highlight = dark ? const Color(0xFF284838) : const Color(0xFFF6FBF8);
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          gradient: LinearGradient(
+            begin: Alignment(-1.5 + _ctrl.value * 3.0, -0.2),
+            end: Alignment(-0.5 + _ctrl.value * 3.0, 0.2),
+            colors: [base, highlight, base],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ShimmerTileList extends StatelessWidget {
+  final int count;
+  const ShimmerTileList({super.key, this.count = 4});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: List.generate(
+      count,
+          (_) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cardC(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderC(context)),
+        ),
+        child: const Row(
+          children: [
+            ShimmerBox(width: 56, height: 56, radius: 12),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(width: 140, height: 14, radius: 6),
+                  SizedBox(height: 8),
+                  ShimmerBox(width: 200, height: 11, radius: 6),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class ShimmerCardGrid extends StatelessWidget {
+  final int count;
+  const ShimmerCardGrid({super.key, this.count = 4});
+
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: count,
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 0.80,
+    ),
+    itemBuilder: (_, __) => Container(
+      decoration: BoxDecoration(
+        color: cardC(context),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderC(context)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: ShimmerBox(height: double.infinity, radius: 0)),
+          Padding(
+            padding: EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerBox(width: 110, height: 13, radius: 6),
+                SizedBox(height: 6),
+                ShimmerBox(width: 80, height: 10, radius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 // ------------------------------------------------------------------ logo aplikasi
 class AppLogo extends StatelessWidget {
   final double size;
@@ -301,23 +528,53 @@ class PrimaryButton extends StatelessWidget {
   final bool outlined;
   const PrimaryButton(this.label, this.onPressed, {super.key, this.outlined = false});
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    height: 46,
-    child: outlined
-        ? OutlinedButton(
-      style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), foregroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-      onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-    )
-        : ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-      onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+  Widget build(BuildContext context) => TapScale(
+    onTap: onPressed,
+    child: SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: outlined
+          ? OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: kGreen, width: 1.4),
+          foregroundColor: kGreen,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: onPressed,
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+      )
+          : DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: onPressed == null
+              ? null
+              : const LinearGradient(colors: [kGreen, Color(0xFF15803D)]),
+          color: onPressed == null ? Colors.grey.shade400 : null,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: onPressed == null
+              ? null
+              : [
+            BoxShadow(
+              color: kGreen.withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          onPressed: onPressed,
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+      ),
     ),
   );
 }
-
 // ------------------------------------------------------------------ input field
 class AppField extends StatelessWidget {
   final String label, hint;
@@ -355,9 +612,9 @@ class AppField extends StatelessWidget {
           filled: true,
           fillColor: cardC(context),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kGreen, width: 1.5)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: borderC(context))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: borderC(context))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kGreen, width: 1.6)),
         ),
       ),
       if (helper != null)
@@ -395,8 +652,9 @@ class AppDropdown extends StatelessWidget {
           filled: true,
           fillColor: cardC(context),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: borderC(context))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: borderC(context))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kGreen, width: 1.6)),
         ),
       ),
       if (helper != null)
@@ -459,13 +717,12 @@ class PhotoBox extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) => TapScale(
     onTap: () => _pick(context),
-    borderRadius: BorderRadius.circular(14),
     child: Container(
       height: 150,
       width: double.infinity,
-      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(14), border: Border.all(color: borderC(context))),
+      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(16), border: Border.all(color: borderC(context))),
       clipBehavior: Clip.antiAlias,
       child: path != null
           ? Stack(fit: StackFit.expand, children: [
@@ -501,7 +758,13 @@ class ReportPhoto extends StatelessWidget {
     }
     final idx = r.id.hashCode.abs() % cardColors.length;
     return Container(
-      color: cardColors[idx],
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cardColors[idx], cardColors[idx].withValues(alpha: 0.78)],
+        ),
+      ),
       child: Center(child: Icon(catIcons[r.category] ?? Icons.inventory_2_outlined, size: iconSize, color: Colors.white)),
     );
   }
@@ -522,7 +785,7 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(20)),
-      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -541,7 +804,7 @@ class FilterChips extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(right: 6),
           child: ChoiceChip(
-            label: Text(s, style: TextStyle(fontSize: 12, color: on ? Colors.white : null)),
+            label: Text(s, style: TextStyle(fontSize: 12, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? Colors.white : null)),
             selected: on,
             selectedColor: kGreen,
             backgroundColor: cardC(context),
@@ -585,7 +848,7 @@ class SecretBox extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: c.withValues(alpha: .14), borderRadius: BorderRadius.circular(12), border: Border.all(color: c)),
+      decoration: BoxDecoration(color: c.withValues(alpha: .14), borderRadius: BorderRadius.circular(14), border: Border.all(color: c)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(Icons.lock, size: 15, color: c),
@@ -606,11 +869,21 @@ class ItemCard extends StatelessWidget {
   const ItemCard(this.r, this.onTap, {super.key});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(16),
+  Widget build(BuildContext context) => TapScale(
     onTap: onTap,
     child: Container(
-      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(16), border: Border.all(color: borderC(context))),
+      decoration: BoxDecoration(
+        color: cardC(context),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderC(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark(context) ? 0.28 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
@@ -622,9 +895,9 @@ class ItemCard extends StatelessWidget {
               left: 8,
               bottom: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                child: Text(r.categoryLabel, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                child: Text(r.categoryLabel, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -658,15 +931,25 @@ class ReportTile extends StatelessWidget {
   final VoidCallback onTap;
   const ReportTile(this.r, this.onTap, {super.key});
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) => TapScale(
     onTap: onTap,
     child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(14), border: Border.all(color: borderC(context))),
+      decoration: BoxDecoration(
+        color: cardC(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderC(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark(context) ? 0.24 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Row(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(10), child: SizedBox(width: 58, height: 58, child: ReportPhoto(r, iconSize: 28))),
+        ClipRRect(borderRadius: BorderRadius.circular(12), child: SizedBox(width: 58, height: 58, child: ReportPhoto(r, iconSize: 28))),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -677,7 +960,7 @@ class ReportTile extends StatelessWidget {
             Wrap(spacing: 6, children: [StatusChip(r.typeLabel), StatusChip(r.status)]),
           ]),
         ),
-        Icon(Icons.chevron_right, color: mutedC(context)),
+        Icon(Icons.chevron_right_rounded, color: mutedC(context)),
       ]),
     ),
   );
@@ -690,15 +973,25 @@ class ClaimTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = store.find(c.reportId);
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
+    return TapScale(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(14), border: Border.all(color: borderC(context))),
+        decoration: BoxDecoration(
+          color: cardC(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderC(context)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark(context) ? 0.24 : 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         child: Row(children: [
-          CircleAvatar(backgroundColor: softC(context), child: const Icon(Icons.how_to_reg, color: kGreen)),
+          CircleAvatar(backgroundColor: softC(context), child: const Icon(Icons.how_to_reg_rounded, color: kGreen)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -708,7 +1001,7 @@ class ClaimTile extends StatelessWidget {
               StatusChip(c.status),
             ]),
           ),
-          Icon(Icons.chevron_right, color: mutedC(context)),
+          Icon(Icons.chevron_right_rounded, color: mutedC(context)),
         ]),
       ),
     );
@@ -722,7 +1015,17 @@ class QrBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
     child: QrImageView(data: data, size: 220, backgroundColor: Colors.white),
   );
 }
@@ -741,45 +1044,167 @@ class FloatingNav extends StatelessWidget {
   const FloatingNav({super.key, required this.index, required this.onTap, required this.items});
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(
-        color: cardC(context),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: borderC(context)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark(context) ? .45 : .14), blurRadius: 18, offset: const Offset(0, 6))],
-      ),
-      child: Row(
-        children: List.generate(items.length, (i) {
-          final it = items[i];
-          final on = i == index;
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(22),
-              onTap: () => onTap(i),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(color: on ? kGreen.withValues(alpha: .16) : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-                    child: Badge(
-                      isLabelVisible: it.badge > 0,
-                      label: Text('${it.badge}'),
-                      child: Icon(on ? it.activeIcon : it.icon, size: 22, color: on ? kGreen : mutedC(context)),
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 0, 12, (bottomInset > 0 ? bottomInset : 12) + 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: cardC(context),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: borderC(context)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark(context) ? .45 : .14), blurRadius: 20, offset: const Offset(0, 8))],
+        ),
+        child: Row(
+          children: List.generate(items.length, (i) {
+            final it = items[i];
+            final on = i == index;
+            return Expanded(
+              child: TapScale(
+                scaleDown: 0.92,
+                onTap: () => onTap(i),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      padding: EdgeInsets.symmetric(horizontal: on ? 16 : 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: on
+                            ? LinearGradient(
+                          colors: [kGreen.withValues(alpha: .20), kGreen.withValues(alpha: .10)],
+                        )
+                            : null,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: AnimatedScale(
+                        scale: on ? 1.12 : 1.0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutBack,
+                        child: Badge(
+                          isLabelVisible: it.badge > 0,
+                          label: Text('${it.badge}'),
+                          child: Icon(on ? it.activeIcon : it.icon, size: 22, color: on ? kGreen : mutedC(context)),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(it.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? kGreen : mutedC(context))),
-                ]),
+                    const SizedBox(height: 2),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(fontSize: 10, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? kGreen : mutedC(context)),
+                      child: Text(it.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+
+                    ),
+                  ]),
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
-    ),
+    );
+  }
+}
+// ------------------------------------------------ transisi rute & hover card modern
+PageRouteBuilder<T> smoothRoute<T>(Widget page) {
+  return PageRouteBuilder<T>(
+    transitionDuration: const Duration(milliseconds: 380),
+    reverseTransitionDuration: const Duration(milliseconds: 280),
+    pageBuilder: (_, __, ___) => page,
+    transitionsBuilder: (_, animation, __, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutQuart,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+          child: child,
+        ),
+      );
+    },
   );
+}
+
+class InteractiveCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final Color? accentColor;
+
+  const InteractiveCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.padding = const EdgeInsets.all(22),
+    this.radius = 24,
+    this.accentColor,
+  });
+
+  @override
+  State<InteractiveCard> createState() => _InteractiveCardState();
+}
+
+class _InteractiveCardState extends State<InteractiveCard> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    final accent = widget.accentColor ?? kGreen;
+    final scale = _pressed ? 0.975 : (_hovered ? 1.018 : 1.0);
+    final translateY = _hovered && !_pressed ? -5.0 : 0.0;
+
+    return MouseRegion(
+      cursor: widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
+        onTapUp: widget.onTap != null
+            ? (_) {
+          setState(() => _pressed = false);
+          widget.onTap?.call();
+        }
+            : null,
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.identity()
+            ..translate(0.0, translateY)
+            ..scale(scale, scale),
+          transformAlignment: Alignment.center,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            color: cardC(context),
+            borderRadius: BorderRadius.circular(widget.radius),
+            border: Border.all(
+              color: _hovered ? accent.withValues(alpha: 0.75) : borderC(context),
+              width: _hovered ? 1.8 : 1.1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _hovered
+                    ? accent.withValues(alpha: dark ? 0.25 : 0.16)
+                    : Colors.black.withValues(alpha: dark ? 0.28 : 0.05),
+                blurRadius: _hovered ? 26 : 14,
+                offset: Offset(0, _hovered ? 12 : 5),
+              ),
+            ],
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }

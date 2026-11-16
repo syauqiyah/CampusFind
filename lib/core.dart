@@ -1,5 +1,7 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -97,60 +99,101 @@ class Report {
   IconData get icon => catIcons[category] ?? Icons.inventory_2;
   bool get isPublic => status == stActive || status == stClaimed;
 
-  Map<String, dynamic> toJson() => {
-        'id': id, 'type': type.index, 'name': name, 'category': category, 'cc': categoryCustom,
-        'desc': description, 'secret': secret, 'area': area, 'ad': areaDetail, 'pos': pos,
-        'owner': owner, 'date': date.toIso8601String(), 'photo': photo, 'status': status,
-        'token': token, 'exp': tokenExp?.toIso8601String(),
-      };
+  Map<String, dynamic> toFirestore() => {
+    'id': id,
+    'typeIndex': type.index,
+    'type': typeLabel,
+    'title': name,
+    'name': name,
+    'category': category,
+    'cc': categoryCustom,
+    'desc': description,
+    'secretDetail': secret,
+    'secret': secret,
+    'area': area,
+    'ad': areaDetail,
+    'pos': pos,
+    'reporterEmail': owner,
+    'owner': owner,
+    'date': date.toIso8601String(),
+    'photo': photo,
+    'status': status,
+    'token': token,
+    'exp': tokenExp?.toIso8601String(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
 
-  factory Report.fromJson(Map<String, dynamic> j) => Report(
-        id: j['id'],
-        type: ReportType.values[j['type']],
-        name: j['name'],
-        category: j['category'],
-        categoryCustom: j['cc'] ?? '',
-        description: j['desc'],
-        secret: j['secret'],
-        area: j['area'],
-        areaDetail: j['ad'],
-        pos: j['pos'],
-        owner: j['owner'],
-        date: DateTime.parse(j['date']),
-        photo: j['photo'],
-        status: j['status'],
-        token: j['token'] ?? '',
-        tokenExp: j['exp'] == null ? null : DateTime.parse(j['exp']),
-      );
+  factory Report.fromFirestore(Map<String, dynamic> j, String docId) {
+    final typeIdx = j['typeIndex'] is int
+        ? j['typeIndex'] as int
+        : ((j['type'] == 'Hilang') ? 0 : 1);
+    return Report(
+      id: (j['id'] as String?) ?? docId,
+      type: ReportType.values[typeIdx.clamp(0, 1)],
+      name: (j['name'] ?? j['title'] ?? 'Tanpa Nama') as String,
+      category: (j['category'] ?? 'Lainnya') as String,
+      categoryCustom: (j['cc'] ?? '') as String,
+      description: (j['desc'] ?? '') as String,
+      secret: (j['secret'] ?? j['secretDetail'] ?? '') as String,
+      area: (j['area'] ?? 'Lainnya') as String,
+      areaDetail: (j['ad'] ?? '') as String,
+      pos: (j['pos'] ?? posList[0]) as String,
+      owner: (j['owner'] ?? j['reporterEmail'] ?? '') as String,
+      date: j['date'] != null ? DateTime.tryParse(j['date'].toString()) ?? DateTime.now() : DateTime.now(),
+      photo: j['photo'] as String?,
+      status: (j['status'] ?? stWait) as String,
+      token: (j['token'] ?? '') as String,
+      tokenExp: j['exp'] == null ? null : DateTime.tryParse(j['exp'].toString()),
+    );
+  }
 }
 
 class Claim {
   final String id, reportId, claimer, answer, proof;
   final String? photo;
   final DateTime date;
-  String status; // Menunggu, Disetujui, Ditolak
+  String status;
   String token;
   DateTime? tokenExp;
 
-  Claim({required this.id, required this.reportId, required this.claimer, required this.answer, this.proof = '', this.photo, required this.date, this.status = 'Menunggu', this.token = '', this.tokenExp});
+  Claim({
+    required this.id,
+    required this.reportId,
+    required this.claimer,
+    required this.answer,
+    this.proof = '',
+    this.photo,
+    required this.date,
+    this.status = 'Menunggu',
+    this.token = '',
+    this.tokenExp,
+  });
 
-  Map<String, dynamic> toJson() => {
-        'id': id, 'rid': reportId, 'claimer': claimer, 'answer': answer, 'proof': proof, 'photo': photo,
-        'date': date.toIso8601String(), 'status': status, 'token': token, 'exp': tokenExp?.toIso8601String(),
-      };
+  Map<String, dynamic> toFirestore() => {
+    'id': id,
+    'rid': reportId,
+    'claimer': claimer,
+    'answer': answer,
+    'proof': proof,
+    'photo': photo,
+    'date': date.toIso8601String(),
+    'status': status,
+    'token': token,
+    'exp': tokenExp?.toIso8601String(),
+  };
 
-  factory Claim.fromJson(Map<String, dynamic> j) => Claim(
-        id: j['id'],
-        reportId: j['rid'],
-        claimer: j['claimer'],
-        answer: j['answer'],
-        proof: j['proof'] ?? '',
-        photo: j['photo'],
-        date: DateTime.parse(j['date']),
-        status: j['status'],
-        token: j['token'] ?? '',
-        tokenExp: j['exp'] == null ? null : DateTime.parse(j['exp']),
-      );
+  factory Claim.fromFirestore(Map<String, dynamic> j, String docId) => Claim(
+    id: (j['id'] as String?) ?? docId,
+    reportId: (j['rid'] ?? '') as String,
+    claimer: (j['claimer'] ?? '') as String,
+    answer: (j['answer'] ?? '') as String,
+    proof: (j['proof'] ?? '') as String,
+    photo: j['photo'] as String?,
+    date: j['date'] != null ? DateTime.tryParse(j['date'].toString()) ?? DateTime.now() : DateTime.now(),
+    status: (j['status'] ?? 'Menunggu') as String,
+    token: (j['token'] ?? '') as String,
+    tokenExp: j['exp'] == null ? null : DateTime.tryParse(j['exp'].toString()),
+  );
 }
 
 class AppNotif {
@@ -161,25 +204,44 @@ class AppNotif {
   final List<String> matchIds;
   final List<double> scores;
 
-  AppNotif({required this.id, required this.owner, required this.type, required this.title, required this.message, required this.time, this.read = false, this.reportId, this.matchIds = const [], this.scores = const []});
+  AppNotif({
+    required this.id,
+    required this.owner,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.time,
+    this.read = false,
+    this.reportId,
+    this.matchIds = const [],
+    this.scores = const [],
+  });
 
-  Map<String, dynamic> toJson() => {
-        'id': id, 'owner': owner, 'type': type, 'title': title, 'message': message, 'time': time.toIso8601String(),
-        'read': read, 'rid': reportId, 'mids': matchIds, 'scores': scores,
-      };
+  Map<String, dynamic> toFirestore() => {
+    'id': id,
+    'owner': owner,
+    'type': type,
+    'title': title,
+    'message': message,
+    'time': time.toIso8601String(),
+    'read': read,
+    'rid': reportId,
+    'mids': matchIds,
+    'scores': scores,
+  };
 
-  factory AppNotif.fromJson(Map<String, dynamic> j) => AppNotif(
-        id: j['id'],
-        owner: j['owner'],
-        type: j['type'],
-        title: j['title'],
-        message: j['message'],
-        time: DateTime.parse(j['time']),
-        read: j['read'] ?? false,
-        reportId: j['rid'],
-        matchIds: List<String>.from(j['mids'] ?? []),
-        scores: (j['scores'] as List? ?? []).map((e) => (e as num).toDouble()).toList(),
-      );
+  factory AppNotif.fromFirestore(Map<String, dynamic> j, String docId) => AppNotif(
+    id: (j['id'] as String?) ?? docId,
+    owner: (j['owner'] ?? '') as String,
+    type: (j['type'] ?? 'info') as String,
+    title: (j['title'] ?? '') as String,
+    message: (j['message'] ?? '') as String,
+    time: j['time'] != null ? DateTime.tryParse(j['time'].toString()) ?? DateTime.now() : DateTime.now(),
+    read: (j['read'] ?? false) as bool,
+    reportId: j['rid'] as String?,
+    matchIds: List<String>.from(j['mids'] ?? []),
+    scores: (j['scores'] as List? ?? []).map((e) => (e as num).toDouble()).toList(),
+  );
 }
 
 // ---------------------------------------------------- pencocokan "AI"
@@ -207,71 +269,142 @@ double matchScore(Report lost, Report found) {
 
 const matchThreshold = 0.5;
 
-// ------------------------------------------------------------------ store
+// ------------------------------------------------------------------ store (Firestore Real-time)
 class Store extends ChangeNotifier {
+  final _db = FirebaseFirestore.instance;
+  final _rnd = Random.secure();
+
   String email = '';
+  String customName = '';
   bool guard = false;
   String guardPos = posList[0];
   List<Report> reports = [];
   List<Claim> claims = [];
   List<AppNotif> notifs = [];
   AppNotif? lastNotif;
-  int _r = 1100, _c = 1000;
-  final _rnd = Random.secure();
+
+  // Peta token QR aktif per Pos Satpam yang disinkronkan real-time lewat Firestore
+  final Map<String, ({String token, DateTime exp})> _livePosTokens = {};
+
+  StreamSubscription? _repSub;
+  StreamSubscription? _claimSub;
+  StreamSubscription? _notifSub;
+  StreamSubscription? _posTokenSub;
+
+  String get _nameStorageKey => 'custom_name_${guard ? "guard" : (email.isNotEmpty ? email : "user")}';
 
   String get name {
+    if (customName.trim().isNotEmpty) return customName.trim();
     if (guard) return 'Bapak Ahmad';
     final raw = email.split('@').first.replaceAll(RegExp(r'[._\-\d]+'), ' ').trim();
     if (raw.isEmpty) return 'Warga UNESA';
     return raw.split(' ').where((e) => e.isNotEmpty).map((e) => e[0].toUpperCase() + e.substring(1)).join(' ');
   }
 
-  String nextReportId() => 'CF-${_r++}';
-  String nextClaimId() => 'CL-${_c++}';
+  Future<void> updateName(String newName) async {
+    final clean = newName.trim();
+    if (clean.isEmpty) return;
+    customName = clean;
+    notifyListeners();
 
-  // -------------------------------------------------- simpan / muat
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameStorageKey, clean);
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && !guard) {
+      await _db.collection('users').doc(uid).set({
+        'name': clean,
+        'email': email,
+      }, SetOptions(merge: true));
+    }
+  }
+
+  String nextReportId() => 'CF-${1000 + _rnd.nextInt(9000)}';
+  String nextClaimId() => 'CL-${1000 + _rnd.nextInt(9000)}';
+
+  // -------------------------------------------------- muat & dengarkan Firestore
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
-    final raw = p.getString('cf_data_v3');
-    if (raw != null) {
+    await p.remove('cf_data_v3');
+    customName = p.getString(_nameStorageKey) ?? '';
+
+    await _repSub?.cancel();
+    await _claimSub?.cancel();
+    await _notifSub?.cancel();
+    await _posTokenSub?.cancel();
+
+    _repSub = _db.collection('reports').snapshots().listen((snap) {
+      final list = snap.docs
+          .map((d) => Report.fromFirestore(d.data(), d.id))
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      reports = list;
+      notifyListeners();
+    });
+
+    _claimSub = _db.collection('claims').snapshots().listen((snap) {
+      final list = snap.docs
+          .map((d) => Claim.fromFirestore(d.data(), d.id))
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      claims = list;
+      notifyListeners();
+    });
+
+    _notifSub = _db.collection('notifs').snapshots().listen((snap) {
+      final list = snap.docs
+          .map((d) => AppNotif.fromFirestore(d.data(), d.id))
+          .toList()
+        ..sort((a, b) => b.time.compareTo(a.time));
+      notifs = list;
+      notifyListeners();
+    });
+
+    // Dengarkan perubahan QR Token Pos secara real-time antar HP Satpam & HP Mahasiswa
+    _posTokenSub = _db.collection('pos_tokens').snapshots().listen((snap) {
+      for (final d in snap.docs) {
+        final data = d.data();
+        final pos = (data['pos'] as String?) ?? d.id;
+        final tok = (data['token'] as String?) ?? '';
+        final exp = data['exp'] != null ? DateTime.tryParse(data['exp'].toString()) : null;
+        if (tok.isNotEmpty && exp != null) {
+          _livePosTokens[pos] = (token: tok, exp: exp);
+          if (pos == guardPos) {
+            posToken = tok;
+            posTokenExp = exp;
+            posTokenPos = pos;
+            posSynced = true;
+            posSyncError = null;
+          }
+        }
+      }
+      notifyListeners();
+    });
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && !guard) {
       try {
-        final j = jsonDecode(raw) as Map<String, dynamic>;
-        _r = j['r'];
-        _c = j['c'];
-        reports = (j['reports'] as List).map((e) => Report.fromJson(e as Map<String, dynamic>)).toList();
-        claims = (j['claims'] as List).map((e) => Claim.fromJson(e as Map<String, dynamic>)).toList();
-        notifs = (j['notifs'] as List).map((e) => AppNotif.fromJson(e as Map<String, dynamic>)).toList();
-        return;
+        final doc = await _db.collection('users').doc(uid).get();
+        final savedName = doc.data()?['name'] as String?;
+        if (savedName != null && savedName.trim().isNotEmpty) {
+          customName = savedName.trim();
+          await p.setString(_nameStorageKey, customName);
+          notifyListeners();
+        }
       } catch (_) {}
     }
-    _seed();
   }
 
-  Future<void> _save() async {
-    final p = await SharedPreferences.getInstance();
-    await p.setString('cf_data_v3', jsonEncode({
-      'r': _r,
-      'c': _c,
-      'reports': reports.map((e) => e.toJson()).toList(),
-      'claims': claims.map((e) => e.toJson()).toList(),
-      'notifs': notifs.map((e) => e.toJson()).toList(),
-    }));
+  Future<void> _syncReport(Report r) async {
+    await _db.collection('reports').doc(r.id).set(r.toFirestore(), SetOptions(merge: true));
   }
 
-  void _seed() {
-    DateTime ago(int d) => DateTime.now().subtract(Duration(days: d));
-    Report mk(String id, ReportType t, String name, String cat, String desc, String secret, String area, String detail, String pos, String owner, int d, {String cc = ''}) =>
-        Report(id: id, type: t, name: name, category: cat, categoryCustom: cc, description: desc, secret: secret, area: area, areaDetail: detail, pos: pos, owner: owner, date: ago(d));
-    reports = [
-      mk('CF-1001', ReportType.ditemukan, 'Dompet Hitam', 'Dompet', 'Dompet kulit hitam, ada kartu mahasiswa', 'Ada foto kucing di slot kartu paling depan', 'Perpustakaan', 'Meja baca lantai 2', posList[0], 'budi@mhs.unesa.ac.id', 0),
-      mk('CF-1002', ReportType.hilang, 'HP Samsung A54', 'Elektronik', 'Samsung A54 casing biru tua', 'Wallpaper foto pantai dan retak kecil di pojok kiri atas', 'Gedung Fakultas', 'Selasar lantai 1', posList[0], 'sari@mhs.unesa.ac.id', 1),
-      mk('CF-1003', ReportType.ditemukan, 'Tas Ransel Hitam', 'Tas', 'Ransel hitam dengan gantungan boneka kecil', 'Di dalam ada buku catatan sampul hijau', 'Kantin', 'Bangku dekat kasir', posList[1], 'dedi@unesa.ac.id', 3),
-      mk('CF-1004', ReportType.hilang, 'Botol Minum Biru', 'Lainnya', 'Botol minum biru tua stainless', 'Ada stiker coklat di bawah botol', 'Ruang Kelas / Laboratorium', 'Lab Komputer 2', posList[1], 'rina@mhs.unesa.ac.id', 4, cc: 'Botol minum'),
-      mk('CF-1005', ReportType.ditemukan, 'Kunci Motor Honda', 'Kunci', 'Kunci Honda gantungan karet merah', 'Gantungan bertuliskan ARYA', 'Area Parkir', 'Parkiran timur dekat pos', posList[1], 'agus@unesa.ac.id', 6),
-      mk('CF-1006', ReportType.ditemukan, 'Botol Minum Biru', 'Lainnya', 'Botol minum biru stainless', 'Stiker coklat kecil di dasar botol', 'Masjid / Mushola', 'Rak sepatu', posList[0], 'yusuf@mhs.unesa.ac.id', 1, cc: 'Botol minum'),
-      mk('CF-1007', ReportType.hilang, 'Jaket Hijau', 'Pakaian', 'Jaket hijau army ukuran L', 'Ada tambalan bendera kecil di lengan kiri', 'Gedung Rektorat', 'Lobi', posList[0], 'wulan@mhs.unesa.ac.id', 2),
-      mk('CF-1008', ReportType.ditemukan, 'Kartu Mahasiswa', 'Dokumen/Kartu', 'KTM warna biru', 'Ada goresan di sudut kanan bawah kartu', 'Gerbang / Jalan Kampus', 'Dekat halte', posList[0], 'hendra@unesa.ac.id', 0),
-    ];
+  Future<void> _syncClaim(Claim c) async {
+    await _db.collection('claims').doc(c.id).set(c.toFirestore(), SetOptions(merge: true));
+  }
+
+  Future<void> _syncNotif(AppNotif n) async {
+    await _db.collection('notifs').doc(n.id).set(n.toFirestore(), SetOptions(merge: true));
   }
 
   // ------------------------------------------------------- pencarian data
@@ -304,25 +437,58 @@ class Store extends ChangeNotifier {
     return List.generate(4, (_) => ch[_rnd.nextInt(ch.length)]).join();
   }
 
-  static const tokenLife = Duration(minutes: 2);
+  static const tokenLife = Duration(minutes: 5);
 
-  // Pos QR token (QR Barcode yang ditampilkan di HP Satpam)
   String posToken = '';
   DateTime? posTokenExp;
   String posTokenPos = '';
+  String? posSyncError;
+  bool posSynced = false;
 
-  void issuePosToken(String pos) {
-    posToken = _newToken();
-    posTokenExp = DateTime.now().add(tokenLife);
-    posTokenPos = pos;
-    _save();
+  String _posDocId(String pos) =>
+      pos.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+
+  Future<void> issuePosToken(String pos) async {
+    final cleanPos = pos.trim();
+    final tok = _newToken();
+    final exp = DateTime.now().add(tokenLife);
+    posToken = tok;
+    posTokenExp = exp;
+    posTokenPos = cleanPos;
+    posSynced = false;
+    posSyncError = null;
+    _livePosTokens[cleanPos] = (token: tok, exp: exp);
+    notifyListeners();
+
+    try {
+      await _db.collection('pos_tokens').doc(_posDocId(cleanPos)).set({
+        'pos': cleanPos,
+        'token': tok,
+        'exp': exp.toIso8601String(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      posSynced = true;
+      posSyncError = null;
+    } catch (e) {
+      posSynced = false;
+      posSyncError = 'Gagal kirim QR ke server: $e';
+      debugPrint(posSyncError);
+    }
     notifyListeners();
   }
 
   bool isPosTokenValid(String pos, String token) {
+    final cleanPos = pos.trim();
+    final cleanToken = token.trim().toUpperCase();
+
+    final live = _livePosTokens[cleanPos];
+    if (live != null && live.token == cleanToken && DateTime.now().isBefore(live.exp)) {
+      return true;
+    }
+
     return posToken.isNotEmpty &&
-        posToken == token &&
-        (posTokenPos.isEmpty || posTokenPos == pos) &&
+        posToken == cleanToken &&
+        (posTokenPos.isEmpty || posTokenPos == cleanPos) &&
         posTokenExp != null &&
         DateTime.now().isBefore(posTokenExp!);
   }
@@ -330,18 +496,18 @@ class Store extends ChangeNotifier {
   void issueReportToken(Report r) {
     r.token = _newToken();
     r.tokenExp = DateTime.now().add(tokenLife);
-    _save();
+    _syncReport(r);
   }
 
   void issueClaimToken(Claim c) {
     c.token = _newToken();
     c.tokenExp = DateTime.now().add(tokenLife);
-    _save();
+    _syncClaim(c);
   }
 
-  bool tokenOk(String expected, String given, DateTime? exp) => expected.isNotEmpty && expected == given && exp != null && DateTime.now().isBefore(exp);
+  bool tokenOk(String expected, String given, DateTime? exp) =>
+      expected.isNotEmpty && expected == given && exp != null && DateTime.now().isBefore(exp);
 
-  /// Mengurai isi QR (CF|R|id|token), (CF|POS|posName|token), atau kode manual.
   (String, String, String)? parse(String raw) {
     final s = raw.trim();
     if (s.startsWith('CF|')) {
@@ -354,34 +520,69 @@ class Store extends ChangeNotifier {
     return (m.group(1) == 'CF' ? 'R' : 'C', '${m.group(1)}-${m.group(2)}', m.group(3)!.toUpperCase());
   }
 
-  /// Verifikasi laporan/klaim ketika pelapor/pengklaim memindai QR Pos Satpam
-  String? verifyByPosToken(String kind, String targetId, String posName, String token) {
-    if (!isPosTokenValid(posName, token)) {
-      return 'QR Pos Satpam tidak valid atau sudah kedaluwarsa. Minta Satpam memperbarui QR Pos.';
+  Future<String?> verifyByPosTokenAsync(String kind, String targetId, String posName, String token) async {
+    final cleanPos = posName.trim();
+    final cleanToken = token.trim().toUpperCase();
+    final docId = _posDocId(cleanPos);
+
+    bool valid = false;
+    String debugReason = '';
+
+    try {
+      // Paksa ambil langsung dari server Firestore (bukan cache lokal HP)
+      final doc = await _db
+          .collection('pos_tokens')
+          .doc(docId)
+          .get(const GetOptions(source: Source.server));
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final dbTok = (data['token'] ?? '').toString().trim().toUpperCase();
+        final dbExp = data['exp'] != null ? DateTime.tryParse(data['exp'].toString()) : null;
+
+        if (dbTok == cleanToken) {
+          if (dbExp == null || DateTime.now().isBefore(dbExp)) {
+            valid = true;
+          } else {
+            debugReason = 'Token QR sudah lewat waktu kedaluwarsa.';
+          }
+        } else {
+          debugReason = 'Kode QR berbeda dengan server (Server: $dbTok, Terbaca: $cleanToken).';
+        }
+      } else {
+        debugReason = 'Dokumen QR Pos ($docId) belum tersimpan di server.';
+      }
+    } catch (e) {
+      debugReason = 'Koneksi Firestore bermasalah: $e';
+      valid = isPosTokenValid(cleanPos, cleanToken);
+    }
+
+    if (!valid) {
+      return debugReason.isNotEmpty
+          ? 'QR gagal: $debugReason'
+          : 'QR Pos Satpam tidak valid atau sudah kedaluwarsa. Minta Satpam memperbarui QR Pos.';
     }
 
     if (kind == 'R') {
       final r = find(targetId);
       if (r == null) return 'Laporan tidak ditemukan.';
+      if (r.status == stActive) return null;
       if (r.status != stWait) return 'Laporan ini sudah diproses (${r.status}).';
-      if (r.pos != posName) return 'Laporan ini harus diverifikasi di ${r.pos}, bukan di $posName.';
+      if (r.pos != cleanPos) return 'Laporan ini harus diverifikasi di ${r.pos}, bukan di $cleanPos.';
 
-      // Berhasil verifikasi!
       approveReport(r);
-      // LANGSUNG ganti QR Pos Satpam ke token baru (sekali pakai!)
-      issuePosToken(posName);
+      await issuePosToken(cleanPos);
       return null;
     } else {
       final c = findClaim(targetId);
       if (c == null) return 'Klaim tidak ditemukan.';
+      if (c.status == 'Disetujui') return null;
       if (c.status != 'Menunggu') return 'Klaim ini sudah diproses (${c.status}).';
       final r = find(c.reportId);
-      if (r != null && r.pos != posName) return 'Klaim ini harus diverifikasi di ${r.pos}, bukan di $posName.';
+      if (r != null && r.pos != cleanPos) return 'Klaim ini harus diverifikasi di ${r.pos}, bukan di $cleanPos.';
 
-      // Berhasil verifikasi!
       approveClaim(c);
-      // LANGSUNG ganti QR Pos Satpam ke token baru (sekali pakai!)
-      issuePosToken(posName);
+      await issuePosToken(cleanPos);
       return null;
     }
   }
@@ -389,33 +590,60 @@ class Store extends ChangeNotifier {
   // ----------------------------------------------------------- laporan
   void add(Report r) {
     reports.insert(0, r);
-    _save();
     notifyListeners();
+    _syncReport(r);
+  }
+
+  Future<void> updateReport(Report updated) async {
+    final idx = reports.indexWhere((x) => x.id == updated.id);
+    if (idx != -1) {
+      reports[idx] = updated;
+      notifyListeners();
+    }
+    await _syncReport(updated);
+  }
+
+  Future<void> deleteReport(String reportId) async {
+    reports.removeWhere((x) => x.id == reportId);
+    notifyListeners();
+    await _db.collection('reports').doc(reportId).delete();
   }
 
   void approveReport(Report r) {
     r.status = stActive;
     r.token = '';
     r.tokenExp = null;
-    notify(r.owner, 'verified', 'Laporan terverifikasi & diunggah', 'Laporan "${r.name}" sudah dipindai dan disetujui satpam (${r.pos}). Sekarang laporanmu tampil di Beranda.', reportId: r.id);
+    notify(
+      r.owner,
+      'verified',
+      'Laporan terverifikasi & diunggah',
+      'Laporan "${r.name}" sudah dipindai dan disetujui satpam (${r.pos}). Sekarang laporanmu tampil di Beranda.',
+      reportId: r.id,
+    );
     runMatching(r);
-    _save();
     notifyListeners();
+    _syncReport(r);
   }
 
   void rejectReport(Report r) {
     r.status = stRejected;
     r.token = '';
     r.tokenExp = null;
-    notify(r.owner, 'info', 'Laporan ditolak', 'Laporan "${r.name}" tidak disetujui satpam. Silakan buat laporan baru dengan data yang benar.', reportId: r.id);
-    _save();
+    notify(
+      r.owner,
+      'info',
+      'Laporan ditolak',
+      'Laporan "${r.name}" tidak disetujui satpam. Silakan buat laporan baru dengan data yang benar.',
+      reportId: r.id,
+    );
     notifyListeners();
+    _syncReport(r);
   }
 
   void complete(Report r) {
     r.status = stDone;
-    _save();
     notifyListeners();
+    _syncReport(r);
   }
 
   // ------------------------------------------------------------- klaim
@@ -424,10 +652,17 @@ class Store extends ChangeNotifier {
     final r = find(c.reportId);
     if (r != null) {
       r.status = stClaimed;
-      notify(r.owner, 'claim', 'Ada klaim pada barang temuanmu', 'Seseorang mengajukan klaim untuk "${r.name}". Satpam akan memverifikasinya.', reportId: r.id);
+      _syncReport(r);
+      notify(
+        r.owner,
+        'claim',
+        'Ada klaim pada barang temuanmu',
+        'Seseorang mengajukan klaim untuk "${r.name}". Satpam akan memverifikasinya.',
+        reportId: r.id,
+      );
     }
-    _save();
     notifyListeners();
+    _syncClaim(c);
   }
 
   void approveClaim(Claim c) {
@@ -435,16 +670,37 @@ class Store extends ChangeNotifier {
     c.status = 'Disetujui';
     c.token = '';
     c.tokenExp = null;
+    _syncClaim(c);
+
     for (final o in claims.where((x) => x.reportId == c.reportId && x.id != c.id && x.status == 'Menunggu')) {
       o.status = 'Ditolak';
-      notify(o.claimer, 'claim', 'Klaim tidak disetujui', 'Barang "${r?.name ?? ''}" sudah diserahkan kepada pemilik lain yang terverifikasi.', reportId: c.reportId);
+      _syncClaim(o);
+      notify(
+        o.claimer,
+        'claim',
+        'Klaim tidak disetujui',
+        'Barang "${r?.name ?? ''}" sudah diserahkan kepada pemilik lain yang terverifikasi.',
+        reportId: c.reportId,
+      );
     }
     if (r != null) {
       r.status = stDone;
-      notify(r.owner, 'info', 'Barang temuanmu sudah diserahkan', '"${r.name}" sudah diserahkan kepada pemilik yang terverifikasi. Terima kasih!', reportId: r.id);
+      _syncReport(r);
+      notify(
+        r.owner,
+        'info',
+        'Barang temuanmu sudah diserahkan',
+        '"${r.name}" sudah diserahkan kepada pemilik yang terverifikasi. Terima kasih!',
+        reportId: r.id,
+      );
     }
-    notify(c.claimer, 'claim', 'Klaim disetujui!', 'Klaim "${r?.name ?? ''}" disetujui satpam. Barang diserahkan di ${r?.pos ?? 'pos satpam'}.', reportId: c.reportId);
-    _save();
+    notify(
+      c.claimer,
+      'claim',
+      'Klaim disetujui!',
+      'Klaim "${r?.name ?? ''}" disetujui satpam. Barang diserahkan di ${r?.pos ?? 'pos satpam'}.',
+      reportId: c.reportId,
+    );
     notifyListeners();
   }
 
@@ -453,19 +709,39 @@ class Store extends ChangeNotifier {
     c.status = 'Ditolak';
     c.token = '';
     c.tokenExp = null;
-    if (r != null && !claims.any((x) => x.reportId == r.id && x.status == 'Menunggu')) r.status = stActive;
-    notify(c.claimer, 'claim', 'Klaim ditolak', 'Detail rahasia pada klaim "${r?.name ?? ''}" tidak cocok dengan laporan. Kamu bisa mencoba lagi dengan data yang benar.', reportId: c.reportId);
-    _save();
+    _syncClaim(c);
+
+    if (r != null && !claims.any((x) => x.reportId == r.id && x.status == 'Menunggu')) {
+      r.status = stActive;
+      _syncReport(r);
+    }
+    notify(
+      c.claimer,
+      'claim',
+      'Klaim ditolak',
+      'Detail rahasia pada klaim "${r?.name ?? ''}" tidak cocok dengan laporan. Kamu bisa mencoba lagi dengan data yang benar.',
+      reportId: c.reportId,
+    );
     notifyListeners();
   }
 
   // ------------------------------------------------------- notifikasi
   void notify(String owner, String type, String title, String message, {String? reportId, List<String> matchIds = const [], List<double> scores = const []}) {
-    final n = AppNotif(id: '${DateTime.now().microsecondsSinceEpoch}$type', owner: owner, type: type, title: title, message: message, time: DateTime.now(), reportId: reportId, matchIds: matchIds, scores: scores);
+    final n = AppNotif(
+      id: '${DateTime.now().microsecondsSinceEpoch}$type',
+      owner: owner,
+      type: type,
+      title: title,
+      message: message,
+      time: DateTime.now(),
+      reportId: reportId,
+      matchIds: matchIds,
+      scores: scores,
+    );
     notifs.insert(0, n);
     lastNotif = n;
-    _save();
     notifyListeners();
+    _syncNotif(n);
   }
 
   int unread(String who) => notifs.where((n) => n.owner == who && !n.read).length;
@@ -473,15 +749,17 @@ class Store extends ChangeNotifier {
   void markRead(AppNotif n) {
     if (n.read) return;
     n.read = true;
-    _save();
     notifyListeners();
+    _syncNotif(n);
   }
 
   void markAllRead(String who) {
     for (final n in notifs.where((n) => n.owner == who)) {
-      n.read = true;
+      if (!n.read) {
+        n.read = true;
+        _syncNotif(n);
+      }
     }
-    _save();
     notifyListeners();
   }
 
@@ -498,24 +776,44 @@ class Store extends ChangeNotifier {
       c.sort((a, b) => b.$2.compareTo(a.$2));
       if (c.isNotEmpty) {
         final top = c.take(3).toList();
-        notify(r.owner, 'match', 'Kemungkinan barangmu ditemukan!', '${top.length} barang temuan mirip dengan "${r.name}" (kecocokan tertinggi ${(top.first.$2 * 100).round()}%). Ketuk untuk melihat.',
-            reportId: r.id, matchIds: top.map((e) => e.$1.id).toList(), scores: top.map((e) => e.$2).toList());
+        notify(
+          r.owner,
+          'match',
+          'Kemungkinan barangmu ditemukan!',
+          '${top.length} barang temuan mirip dengan "${r.name}" (kecocokan tertinggi ${(top.first.$2 * 100).round()}%). Ketuk untuk melihat.',
+          reportId: r.id,
+          matchIds: top.map((e) => e.$1.id).toList(),
+          scores: top.map((e) => e.$2).toList(),
+        );
       }
     } else {
       for (final l in reports.where((x) => x.type == ReportType.hilang && x.isPublic).toList()) {
         final s = matchScore(l, r);
         if (s >= matchThreshold) {
-          notify(l.owner, 'match', 'Ada barang temuan yang mirip!', '"${r.name}" baru saja ditemukan dan cocok ${(s * 100).round()}% dengan laporan hilangmu "${l.name}". Ketuk untuk melihat.',
-              reportId: l.id, matchIds: [r.id], scores: [s]);
+          notify(
+            l.owner,
+            'match',
+            'Ada barang temuan yang mirip!',
+            '"${r.name}" baru saja ditemukan dan cocok ${(s * 100).round()}% dengan laporan hilangmu "${l.name}". Ketuk untuk melihat.',
+            reportId: l.id,
+            matchIds: [r.id],
+            scores: [s],
+          );
         }
       }
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
     email = '';
+    customName = '';
     guard = false;
     notifyListeners();
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('guard_logged_in');
   }
 }
 
