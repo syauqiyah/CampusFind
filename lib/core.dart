@@ -283,7 +283,6 @@ class Store extends ChangeNotifier {
   List<AppNotif> notifs = [];
   AppNotif? lastNotif;
 
-  // Peta token QR aktif per Pos Satpam yang disinkronkan real-time lewat Firestore
   final Map<String, ({String token, DateTime exp})> _livePosTokens = {};
 
   StreamSubscription? _repSub;
@@ -360,7 +359,6 @@ class Store extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Dengarkan perubahan QR Token Pos secara real-time antar HP Satpam & HP Mahasiswa
     _posTokenSub = _db.collection('pos_tokens').snapshots().listen((snap) {
       for (final d in snap.docs) {
         final data = d.data();
@@ -529,7 +527,6 @@ class Store extends ChangeNotifier {
     String debugReason = '';
 
     try {
-      // Paksa ambil langsung dari server Firestore (bukan cache lokal HP)
       final doc = await _db
           .collection('pos_tokens')
           .doc(docId)

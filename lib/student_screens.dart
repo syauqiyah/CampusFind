@@ -72,6 +72,7 @@ class _StudentShellState extends State<StudentShell> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    extendBody: true,
     body: IndexedStack(index: tab, children: [
       StudentHome(onGo: go),
       const ReportHub(),
@@ -84,6 +85,7 @@ class _StudentShellState extends State<StudentShell> {
       builder: (context, _) => FloatingNav(
         index: tab,
         onTap: go,
+        centerTooltip: 'Cari Barang',
         items: [
           const NavItem(Icons.home_outlined, Icons.home, 'Beranda'),
           const NavItem(Icons.assignment_outlined, Icons.assignment, 'Laporan'),
@@ -105,9 +107,6 @@ class StudentHome extends StatefulWidget {
 }
 
 class _StudentHomeState extends State<StudentHome> {
-  String f = 'Semua';
-  String selectedCat = 'Semua';
-
   Widget _header(BuildContext context) {
     final dark = isDark(context);
     final name = store.name.isEmpty ? 'Warga UNESA' : store.name;
@@ -232,37 +231,146 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
-  Widget _categorySelector(BuildContext context) {
-    final catList = ['Semua', ...categories];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: catList.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final cat = catList[index];
-          final isSel = selectedCat == cat;
-          return FilterChip(
-            selected: isSel,
-            showCheckmark: false,
-            avatar: cat == 'Semua' ? null : Icon(catIcons[cat], size: 14, color: isSel ? Colors.white : kGreen),
-            label: Text(
-              cat,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                color: isSel ? Colors.white : (isDark(context) ? Colors.white70 : Colors.black87),
+  Widget _guardHoursCard(BuildContext context) {
+    final dark = isDark(context);
+    final hour = DateTime.now().hour;
+    final isOpen = hour >= 7 && hour < 21;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardC(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderC(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.22 : 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: kGreen.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.shield_outlined, color: kGreen, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Jam Operasional Pos Satpam',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (isOpen ? kGreen : Colors.orange).withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        isOpen ? 'Buka' : 'Tutup',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isOpen ? (dark ? const Color(0xFF6EE7B7) : kDeep) : Colors.orange.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '07.00 – 21.00 WIB • Senin – Sabtu',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Pos Gerbang Depan & Gerbang Belakang',
+                  style: TextStyle(fontSize: 11.5, color: mutedC(context)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _newsItem(
+      BuildContext context, {
+        required IconData icon,
+        required Color accent,
+        required String title,
+        required String subtitle,
+        VoidCallback? onTap,
+      }) {
+    final dark = isDark(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: cardC(context),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderC(context)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: dark ? 0.18 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: accent, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: mutedC(context)),
+                  ),
+                ],
               ),
             ),
-            backgroundColor: cardC(context),
-            selectedColor: kGreen,
-            side: BorderSide(color: isSel ? kGreen : borderC(context)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            onSelected: (_) => setState(() => selectedCat = cat),
-          );
-        },
+            if (onTap != null) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right_rounded, size: 18, color: mutedC(context)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -271,53 +379,56 @@ class _StudentHomeState extends State<StudentHome> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,
     builder: (context, _) {
-      final pub = store.reports.where((r) => r.isPublic).toList()..sort((a, b) => b.date.compareTo(a.date));
-      final list = pub.where((r) {
-        final matchType = (f == 'Semua' || r.typeLabel == f);
-        final matchCat = (selectedCat == 'Semua' || r.category == selectedCat || r.categoryLabel == selectedCat);
-        return matchType && matchCat;
-      }).toList();
+      final pub = store.reports.where((r) => r.isPublic).toList();
+      final foundCount = pub.where((r) => r.type == ReportType.ditemukan).length;
+      final lostCount = pub.where((r) => r.type == ReportType.hilang).length;
 
-      return CustomScrollView(slivers: [
-        SliverToBoxAdapter(child: _header(context)),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Katalog Barang Terlapor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('${list.length} item', style: TextStyle(fontSize: 12, color: mutedC(context), fontWeight: FontWeight.w600)),
-              ]),
-              Text('Barang hilang & ditemukan yang sudah diverifikasi satpam.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-              const SizedBox(height: 12),
-              FilterChips(const ['Semua', 'Hilang', 'Ditemukan'], f, (v) => setState(() => f = v)),
-            ]),
-          ),
-        ),
-        SliverToBoxAdapter(child: _categorySelector(context)),
-        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-        if (list.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(40),
-              child: Center(
-                child: Column(children: [
-                  Icon(Icons.inventory_2_outlined, size: 48, color: mutedC(context).withValues(alpha: 0.5)),
-                  const SizedBox(height: 10),
-                  Text('Belum ada laporan barang', style: TextStyle(color: mutedC(context), fontSize: 13, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
-          )
-        else
+      return CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _header(context)),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            sliver: SliverGrid(
-              gridDelegate: _grid,
-              delegate: SliverChildBuilderDelegate((c, i) => ItemCard(list[i], () => openReport(c, list[i])), childCount: list.length),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _guardHoursCard(context),
+                const SizedBox(height: 20),
+                const Text(
+                  'Berita Terkini',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                _newsItem(
+                  context,
+                  icon: Icons.inventory_2_outlined,
+                  accent: kGreen,
+                  title: 'Barang Temuan',
+                  subtitle: '$foundCount barang diamankan di pos & siap diklaim.',
+                  onTap: () => widget.onGo(2),
+                ),
+                const SizedBox(height: 10),
+                _newsItem(
+                  context,
+                  icon: Icons.search_rounded,
+                  accent: const Color(0xFF2563EB),
+                  title: 'Laporan Kehilangan',
+                  subtitle: '$lostCount laporan aktif sedang dicocokkan sistem.',
+                  onTap: () => widget.onGo(2),
+                ),
+                const SizedBox(height: 10),
+                _newsItem(
+                  context,
+                  icon: Icons.qr_code_scanner_rounded,
+                  accent: const Color(0xFFD97706),
+                  title: 'Verifikasi Laporan',
+                  subtitle: 'Scan QR di pos maks. 5 menit agar laporan tayang.',
+                  onTap: () => widget.onGo(1),
+                ),
+              ]),
             ),
           ),
-      ]);
+        ],
+      );
     },
   );
 }
@@ -356,7 +467,7 @@ class _ReportHubState extends State<ReportHub> {
     builder: (context, _) {
       final mine = store.reports.where((r) => r.owner == store.email).toList();
       final myClaims = store.claims.where((c) => c.claimer == store.email).toList();
-      return ListView(padding: EdgeInsets.zero, children: [
+      return ListView(padding: const EdgeInsets.only(bottom: 120), children: [
         const BandHeader('Laporan', subtitle: 'Laporkan barang hilang atau yang kamu temukan'),
         Padding(
           padding: const EdgeInsets.all(16),
@@ -881,7 +992,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: list.isEmpty
                 ? Center(child: Text('Barang tidak ditemukan', style: TextStyle(color: mutedC(context))))
                 : GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
               gridDelegate: _grid,
               itemCount: list.length,
               itemBuilder: (c, i) => ItemCard(list[i], () => openReport(c, list[i])),
@@ -1191,7 +1302,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       builder: (context, _) {
         final all = store.notifs.where((n) => n.owner == store.email).toList();
         final list = all.where((n) => f == 'Semua' || !n.read).toList();
-        return ListView(padding: EdgeInsets.zero, children: [
+        return ListView(padding: const EdgeInsets.only(bottom: 120), children: [
           BandHeader(
             'Notifikasi',
             subtitle: 'Info kecocokan & status verifikasi',
@@ -1209,28 +1320,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               for (final n in list)
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(color: n.read ? cardC(context) : softC(context), borderRadius: BorderRadius.circular(14), border: Border.all(color: borderC(context))),
-                  child: ListTile(
-                    leading: CircleAvatar(backgroundColor: _style(n.type).$2.withValues(alpha: .15), child: Icon(_style(n.type).$1, color: _style(n.type).$2)),
-                    title: Row(children: [
-                      Expanded(child: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-                      if (!n.read) const CircleAvatar(radius: 4, backgroundColor: Colors.red),
-                    ]),
-                    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const SizedBox(height: 2),
-                      Text(n.message, style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 4),
-                      Text(ago(n.time), style: TextStyle(fontSize: 10, color: mutedC(context))),
-                    ]),
-                    onTap: () {
-                      store.markRead(n);
-                      if (n.type == 'match' && n.matchIds.isNotEmpty) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => MatchScreen(n)));
-                      } else if (n.reportId != null) {
-                        final r = store.find(n.reportId!);
-                        if (r != null) openReport(context, r);
-                      }
-                    },
+                  decoration: BoxDecoration(
+                    color: n.read ? cardC(context) : softC(context),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: borderC(context)),
+                  ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      leading: CircleAvatar(
+                        backgroundColor: _style(n.type).$2.withValues(alpha: .15),
+                        child: Icon(_style(n.type).$1, color: _style(n.type).$2),
+                      ),
+                      title: Row(children: [
+                        Expanded(child: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+                        if (!n.read) const CircleAvatar(radius: 4, backgroundColor: Colors.red),
+                      ]),
+                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const SizedBox(height: 2),
+                        Text(n.message, style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(ago(n.time), style: TextStyle(fontSize: 10, color: mutedC(context))),
+                      ]),
+                      onTap: () {
+                        store.markRead(n);
+                        if (n.type == 'match' && n.matchIds.isNotEmpty) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => MatchScreen(n)));
+                        } else if (n.reportId != null) {
+                          final r = store.find(n.reportId!);
+                          if (r != null) openReport(context, r);
+                        }
+                      },
+                    ),
                   ),
                 ),
             ]),

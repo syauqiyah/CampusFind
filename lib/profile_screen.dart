@@ -30,7 +30,10 @@ class ProfileScreen extends StatelessWidget {
       ],
     ),
     clipBehavior: Clip.antiAlias,
-    child: Column(children: children),
+    child: Material(
+      type: MaterialType.transparency,
+      child: Column(children: children),
+    ),
   );
 
   void _editName(BuildContext context) {
@@ -116,7 +119,7 @@ class ProfileScreen extends StatelessWidget {
     listenable: Listenable.merge([settings, store]),
     builder: (context, _) => ListView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 120),
+      padding: EdgeInsets.only(bottom: 120 + MediaQuery.viewPaddingOf(context).bottom),
       children: [
         BandHeader(
           'Profil Saya',

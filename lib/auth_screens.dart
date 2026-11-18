@@ -30,46 +30,76 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
+      // 1. Verifikasi ketat sesi Satpam terhadap koleksi satpam_officers
       if (prefs.getBool('guard_logged_in') == true) {
-        store.guard = true;
-        store.email = prefs.getString('guard_id') ?? 'Petugas Pos';
-        store.guardPos = prefs.getString('guard_pos') ?? posList[0];
-        await store.load();
-        if (!mounted) return;
-        setState(() {
-          _resolvedNext = const GuardShell();
-          _alreadyLoggedIn = true;
-        });
-        return;
+        final savedId = (prefs.getString('guard_id') ?? '').trim().toUpperCase();
+        if (savedId.isNotEmpty) {
+          final officerDoc = await FirebaseFirestore.instance
+              .collection('satpam_officers')
+              .doc(savedId)
+              .get();
+
+          final data = officerDoc.data();
+          if (officerDoc.exists && data != null && (data['active'] == true)) {
+            if (FirebaseAuth.instance.currentUser != null) {
+              await FirebaseAuth.instance.signOut();
+            }
+
+            store.guard = true;
+            store.email = savedId;
+            store.guardPos = (data['post'] as String?) ?? prefs.getString('guard_pos') ?? posList[0];
+            await store.load();
+            final officialName = (data['name'] as String?)?.trim() ?? '';
+            if (officialName.isNotEmpty) {
+              store.customName = officialName;
+            }
+
+            if (!mounted) return;
+            setState(() {
+              _resolvedNext = const GuardShell();
+              _alreadyLoggedIn = true;
+            });
+            return;
+          }
+        }
+        await prefs.remove('guard_logged_in');
+        await prefs.remove('guard_id');
+        await prefs.remove('guard_pos');
       }
 
+      // 2. Verifikasi sesi Warga UNESA / Admin Supervisor
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && user.email != null) {
         final email = user.email!.toLowerCase();
-        store.guard = false;
-        store.email = email;
-        await store.load();
-
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
-        final role = (doc.data()?['role'] as String?) ?? 'student';
+        final data = doc.data();
 
-        if (!mounted) return;
-        if (role == 'admin') {
-          setState(() {
-            _resolvedNext = AdminDashboardScreen(adminEmail: email);
-            _alreadyLoggedIn = true;
-          });
+        if (data != null && data['blocked'] == true) {
+          await FirebaseAuth.instance.signOut();
         } else {
-          final seen = prefs.getBool('tutorial_seen') ?? false;
-          setState(() {
-            _resolvedNext = seen ? const StudentShell() : const TutorialScreen();
-            _alreadyLoggedIn = true;
-          });
+          store.guard = false;
+          store.email = email;
+          await store.load();
+
+          final role = (data?['role'] as String?) ?? 'student';
+          if (!mounted) return;
+          if (role == 'admin') {
+            setState(() {
+              _resolvedNext = AdminDashboardScreen(adminEmail: email);
+              _alreadyLoggedIn = true;
+            });
+          } else {
+            final seen = prefs.getBool('tutorial_seen') ?? false;
+            setState(() {
+              _resolvedNext = seen ? const StudentShell() : const TutorialScreen();
+              _alreadyLoggedIn = true;
+            });
+          }
+          return;
         }
-        return;
       }
     } catch (e) {
       debugPrint('Auto-login check error: $e');
@@ -90,6 +120,7 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+
 class AuthScaffold extends StatelessWidget {
   final String badgeText;
   final String title;
@@ -110,6 +141,8 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = isDark(context);
     final subColor = dark ? Colors.white70 : const Color(0xFF475569);
+    final screenW = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenW * 0.068).clamp(22.0, 28.0);
 
     return Scaffold(
       body: Column(
@@ -139,32 +172,38 @@ class AuthScaffold extends StatelessWidget {
                       )
                     else
                       const SizedBox(width: 48),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: dark ? Colors.black45 : Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: kGreen.withValues(alpha: 0.35)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
-                          ),
-                          const SizedBox(width: 7),
-                          Text(
-                            'UNESA LOST & FOUND PORTAL',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                              color: dark ? Colors.white : kDeep,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: dark ? Colors.black45 : Colors.white.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: kGreen.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 7),
+                            Flexible(
+                              child: Text(
+                                'UNESA LOST & FOUND PORTAL',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                  color: dark ? Colors.white : kDeep,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -175,14 +214,13 @@ class AuthScaffold extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 36),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Hero Brand Lockup Modern (Menggantikan teks hijau polos)
                       FadeSlideIn(
                         index: 0,
                         child: Column(
@@ -232,6 +270,7 @@ class AuthScaffold extends StatelessWidget {
                               ),
                               child: Text(
                                 badgeText.toUpperCase(),
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
@@ -241,31 +280,37 @@ class AuthScaffold extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            ShaderMask(
-                              shaderCallback: (bounds) => LinearGradient(
-                                colors: dark
-                                    ? const [Colors.white, Color(0xFFA7F3D0)]
-                                    : const [kDeep, kGreen],
-                              ).createShader(bounds),
-                              child: Text(
-                                title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: -0.6,
-                                  height: 1.15,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: ShaderMask(
+                                blendMode: BlendMode.srcIn,
+                                shaderCallback: (bounds) => LinearGradient(
+                                  colors: dark
+                                      ? const [Colors.white, Color(0xFFA7F3D0)]
+                                      : const [kDeep, kGreen],
+                                ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                                child: Text(
+                                  title,
+                                  textAlign: TextAlign.center,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    fontSize: titleFontSize,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: -0.5,
+                                    height: 1.2,
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 8),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 260),
                               child: Text(
                                 subtitle,
                                 key: ValueKey(subtitle),
                                 textAlign: TextAlign.center,
+                                softWrap: true,
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w500,
@@ -274,7 +319,7 @@ class AuthScaffold extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 26),
+                            const SizedBox(height: 24),
                           ],
                         ),
                       ),
@@ -339,18 +384,22 @@ class ChooseLoginScreen extends StatelessWidget {
                   ),
                   child: Icon(icon, color: Colors.white, size: 25),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    roleTag,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: dark ? Colors.white : accent,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      roleTag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: dark ? Colors.white : accent,
+                      ),
                     ),
                   ),
                 ),
@@ -368,6 +417,7 @@ class ChooseLoginScreen extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               sub,
+              softWrap: true,
               style: TextStyle(
                 fontSize: 13,
                 color: mutedC(context),
@@ -377,7 +427,7 @@ class ChooseLoginScreen extends StatelessWidget {
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
               decoration: BoxDecoration(
                 gradient: guard
                     ? null
@@ -389,12 +439,16 @@ class ChooseLoginScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    btnLabel,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: guard ? (dark ? Colors.white : accent) : Colors.white,
+                  Flexible(
+                    child: Text(
+                      btnLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: guard ? (dark ? Colors.white : accent) : Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -488,6 +542,7 @@ class ChooseLoginScreen extends StatelessWidget {
     );
   }
 }
+
 class LoginScreen extends StatefulWidget {
   final bool guard;
   const LoginScreen({super.key, required this.guard});
@@ -505,6 +560,14 @@ class _LoginScreenState extends State<LoginScreen> {
   String? pos;
 
   static final _unesa = RegExp(r'^[\w.+\-]+@([\w\-]+\.)*unesa\.ac\.id$', caseSensitive: false);
+  static const _defaultGuardPassword = 'satpam123';
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
+  }
 
   Future<void> _login() async {
     if (!_form.currentState!.validate()) return;
@@ -512,18 +575,69 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      final db = FirebaseFirestore.instance;
 
-      // 1. Login Satpam + simpan sesi lokal
+      // =========================================================================
+      // 1. PORTAL KHUSUS SATPAM POS (ID Petugas + Password satpam123 + Pos Tugas)
+      // =========================================================================
       if (widget.guard) {
-        final guardId = idC.text.trim();
+        final rawId = idC.text.trim();
+        final inputPass = passC.text.trim();
+
+        // Tolak jika pengguna mencoba memasukkan email Mahasiswa / Admin
+        if (rawId.contains('@')) {
+          _showError('Akses ditolak! Email Mahasiswa/Admin tidak dapat masuk ke Portal Satpam.');
+          return;
+        }
+
+        final guardId = rawId.toUpperCase();
+        final officerDoc = await db.collection('satpam_officers').doc(guardId).get();
+
+        if (!officerDoc.exists || officerDoc.data() == null) {
+          _showError('ID Petugas "$guardId" tidak terdaftar! Hubungi Admin Supervisor untuk pendaftaran ID resmi.');
+          return;
+        }
+
+        final data = officerDoc.data()!;
+        if (data['active'] != true) {
+          _showError('Akun petugas "$guardId" sedang dinonaktifkan oleh Admin Supervisor.');
+          return;
+        }
+
+        // Validasi password Satpam (menggunakan password khusus dokumen jika ada, atau default 'satpam123')
+        final customDocPass = (data['pin'] ?? data['password'] ?? '').toString().trim();
+        final expectedPass = customDocPass.isNotEmpty ? customDocPass : _defaultGuardPassword;
+        if (inputPass != expectedPass) {
+          _showError('Password Satpam salah! Pastikan Anda memasukkan password petugas yang benar.');
+          return;
+        }
+
+        final registeredPos = (data['post'] as String?) ?? '';
+        if (registeredPos.isNotEmpty && registeredPos != pos) {
+          _showError('ID "$guardId" hanya terdaftar untuk bertugas di $registeredPos, bukan di $pos.');
+          return;
+        }
+
+        // Putuskan sesi Firebase Auth Mahasiswa/Admin jika masih aktif di perangkat ini
+        if (FirebaseAuth.instance.currentUser != null) {
+          await FirebaseAuth.instance.signOut();
+        }
+
+        final officialName = (data['name'] as String?)?.trim() ?? '';
         store.guard = true;
         store.email = guardId;
         store.guardPos = pos!;
+        if (officialName.isNotEmpty) {
+          store.customName = officialName;
+        }
 
         await prefs.setBool('guard_logged_in', true);
         await prefs.setString('guard_id', guardId);
         await prefs.setString('guard_pos', pos!);
         await store.load();
+        if (officialName.isNotEmpty) {
+          store.customName = officialName;
+        }
 
         final seen = prefs.getBool('guard_tutorial_seen') ?? false;
         if (!mounted) return;
@@ -532,11 +646,12 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // 2. Login / Daftar Warga UNESA (Admin otomatis diarahkan jika role == 'admin')
+      // =========================================================================
+      // 2. PORTAL WARGA UNESA & ADMIN SUPERVISOR
+      // =========================================================================
       final email = idC.text.trim().toLowerCase();
       final password = passC.text;
       final auth = FirebaseAuth.instance;
-      final db = FirebaseFirestore.instance;
 
       UserCredential cred;
       if (isRegister) {
@@ -546,10 +661,18 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       await prefs.remove('guard_logged_in');
+      await prefs.remove('guard_id');
+      await prefs.remove('guard_pos');
 
       final uid = cred.user!.uid;
       final userRef = db.collection('users').doc(uid);
       final doc = await userRef.get();
+
+      if (doc.exists && doc.data()?['blocked'] == true) {
+        await auth.signOut();
+        _showError('Akun Anda dibekukan sementara oleh Admin Supervisor.');
+        return;
+      }
 
       String role = 'student';
       if (!doc.exists) {
@@ -558,6 +681,7 @@ class _LoginScreenState extends State<LoginScreen> {
           'email': email,
           'name': defaultName,
           'role': 'student',
+          'blocked': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
       } else {
@@ -583,7 +707,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final Widget next = seen ? const StudentShell() : const TutorialScreen();
       Navigator.pushAndRemoveUntil(context, smoothRoute(next), (r) => false);
     } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
       String msg = 'Gagal masuk (${e.code})';
       if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
         msg = 'Email atau password salah. Jika belum punya akun, klik Buat akun warga UNESA.';
@@ -594,14 +717,9 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (e.code == 'weak-password') {
         msg = 'Password terlalu lemah (minimal 6 karakter).';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
-      );
+      _showError(msg);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Terjadi kesalahan: $e'), backgroundColor: Colors.redAccent),
-      );
+      _showError('Terjadi kesalahan: $e');
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -614,7 +732,7 @@ class _LoginScreenState extends State<LoginScreen> {
       badgeText: g ? 'Akses Petugas Pos' : 'Autentikasi Civitas',
       title: g ? 'Portal Satpam Pos' : (isRegister ? 'Daftar Warga UNESA' : 'Masuk ke CampusFind'),
       subtitle: g
-          ? 'Masukkan ID Petugas dan pilih lokasi pos penjagaan Anda.'
+          ? 'Masukkan ID Petugas resmi, password petugas, dan pilih lokasi pos penjagaan Anda.'
           : (isRegister
           ? 'Gunakan email institusi @unesa.ac.id untuk membuat akun baru.'
           : 'Gunakan email institusi @unesa.ac.id Anda untuk melanjutkan.'),
@@ -642,26 +760,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppField(
-                    g ? 'ID Petugas' : 'Email UNESA',
-                    g ? 'Masukkan ID petugas' : 'nama@mhs.unesa.ac.id',
+                    g ? 'ID Petugas Resmi' : 'Email UNESA',
+                    g ? 'Contoh: SATPAM01' : 'nama@mhs.unesa.ac.id',
                     controller: idC,
                     icon: g ? Icons.badge_outlined : Icons.mail_outline_rounded,
                     keyboard: g ? TextInputType.text : TextInputType.emailAddress,
-                    helper: g ? null : 'Hanya email berdomain UNESA (…@unesa.ac.id / …@mhs.unesa.ac.id)',
+                    helper: g
+                        ? 'ID Petugas diterbitkan oleh Admin Supervisor (bukan email kampus)'
+                        : 'Hanya email berdomain UNESA (…@unesa.ac.id / …@mhs.unesa.ac.id)',
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-                      if (!g && !_unesa.hasMatch(v.trim())) return 'Gunakan email UNESA (@unesa.ac.id)';
+                      if (g && v.trim().contains('@')) {
+                        return 'Gunakan ID Petugas resmi, bukan email kampus';
+                      }
+                      if (!g && !_unesa.hasMatch(v.trim())) {
+                        return 'Gunakan email UNESA (@unesa.ac.id)';
+                      }
                       return null;
                     },
                   ),
-                  const Text('Password', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(g ? 'Password Petugas' : 'Password',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: passC,
                     obscureText: hide,
                     validator: (v) => (v == null || v.length < 6) ? 'Minimal 6 karakter' : null,
                     decoration: InputDecoration(
-                      hintText: 'Masukkan password',
+                      hintText: g ? 'Masukkan password petugas pos' : 'Masukkan password',
                       hintStyle: const TextStyle(fontSize: 13),
                       prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
                       suffixIcon: IconButton(
@@ -707,6 +833,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? 'Sudah punya akun UNESA? Masuk di sini'
                                 : 'Belum pernah mendaftar? Buat akun warga UNESA',
                             key: ValueKey(isRegister),
+                            textAlign: TextAlign.center,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),

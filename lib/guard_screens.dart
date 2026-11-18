@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'cartoon.dart';
 import 'core.dart';
@@ -51,6 +53,7 @@ class _GuardShellState extends State<GuardShell> {
           return FloatingNav(
             index: tab,
             onTap: (i) => setState(() => tab = i),
+            centerTooltip: 'QR Pos Satpam',
             items: [
               NavItem(Icons.dashboard_outlined, Icons.dashboard_rounded, 'Beranda', badge: n),
               const NavItem(Icons.list_alt_outlined, Icons.list_alt_rounded, 'Laporan'),
@@ -64,8 +67,14 @@ class _GuardShellState extends State<GuardShell> {
   }
 }
 
-class GuardHome extends StatelessWidget {
+class GuardHome extends StatefulWidget {
   const GuardHome({super.key});
+  @override
+  State<GuardHome> createState() => _GuardHomeState();
+}
+
+class _GuardHomeState extends State<GuardHome> {
+  int queueTab = 0; // 0 = Verifikasi Laporan, 1 = Verifikasi Klaim
 
   Widget _stat(int val, String label, List<Color> gradientColors) => Expanded(
     child: Container(
@@ -89,7 +98,7 @@ class GuardHome extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AnimatedCounter(
           val,
-          style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800),
+          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
@@ -101,169 +110,260 @@ class GuardHome extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Pilih Pos Satpam Tugas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
-          for (final pos in posList)
-            ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              leading: Icon(Icons.location_on_rounded, color: store.guardPos == pos ? kGreen : Colors.grey),
-              title: Text(pos, style: TextStyle(fontWeight: store.guardPos == pos ? FontWeight.w700 : FontWeight.w500)),
-              trailing: store.guardPos == pos ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
-              onTap: () {
-                store.guardPos = pos;
-                store.issuePosToken(pos);
-                Navigator.pop(ctx);
-              },
-            ),
-        ]),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Pilih Pos Satpam Tugas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            for (final pos in posList)
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                leading: Icon(Icons.location_on_rounded, color: store.guardPos == pos ? kGreen : Colors.grey),
+                title: Text(pos, style: TextStyle(fontWeight: store.guardPos == pos ? FontWeight.w700 : FontWeight.w500)),
+                trailing: store.guardPos == pos ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
+                onTap: () {
+                  store.guardPos = pos;
+                  store.issuePosToken(pos);
+                  Navigator.pop(ctx);
+                },
+              ),
+          ]),
+        ),
       ),
     );
   }
 
   Widget _guardHeader(BuildContext context) {
     final dark = isDark(context);
-    final badgeBg = dark
-        ? Colors.black.withValues(alpha: 0.50)
-        : Colors.black.withValues(alpha: 0.35);
-    final badgeBorder = dark
-        ? Colors.white.withValues(alpha: 0.20)
-        : Colors.white.withValues(alpha: 0.35);
+    final name = store.name.isEmpty ? 'Petugas Pos' : store.name;
+    String? brandFont;
+    try {
+      brandFont = GoogleFonts.syne().fontFamily;
+    } catch (_) {}
 
     return CartoonHeader(
-      height: 195,
-      bx: .82,
-      bs: .45,
-      groundY: .92,
-      sunX: .55,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 110,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    dark
-                        ? Colors.black.withValues(alpha: 0.65)
-                        : Colors.black.withValues(alpha: 0.40),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: FadeSlideIn(
-                index: 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
+      height: 240,
+      bx: .5,
+      bs: .52,
+      groundY: .82,
+      sunX: .82,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const AppLogo(size: 50),
+                  const SizedBox(width: 11),
+                  Flexible(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
+                            color: dark
+                                ? const Color(0xFF0F172A).withValues(alpha: 0.68)
+                                : Colors.white.withValues(alpha: 0.76),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: dark
+                                  ? const Color(0xFF94A3B8).withValues(alpha: 0.25)
+                                  : Colors.white.withValues(alpha: 0.85),
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.25),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withValues(alpha: dark ? 0.32 : 0.08),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          child: const AppLogo(size: 32),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'CampusFind',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                                shadows: [
-                                  Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1.5)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Campus',
+                                    style: TextStyle(
+                                      fontFamily: brandFont,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.6,
+                                      height: 1.0,
+                                      color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0B357A),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      'Find',
+                                      style: TextStyle(
+                                        fontFamily: brandFont,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                        height: 1.0,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                            Text(
-                              'UNESA Security Guard',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withValues(alpha: 0.9),
-                                shadows: const [
-                                  Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                                ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Halo, $name! 🛡️ • ${store.guardPos}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: badgeBorder, width: 1),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Halo, ${store.name}! 🛡️',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Petugas Jaga - ${store.guardPos}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.92),
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _uniformQueueCard(
+      BuildContext context, {
+        required IconData icon,
+        required Color accent,
+        required String title,
+        required String subtitle,
+        required String badge,
+        required VoidCallback onTap,
+      }) {
+    final dark = isDark(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: cardC(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: borderC(context)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.18 : 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: mutedC(context)),
                     ),
                   ],
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accent),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 18, color: mutedC(context)),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  Widget _emptyQueueCard(BuildContext context, String text) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+    decoration: BoxDecoration(
+      color: cardC(context),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: borderC(context)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 24),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: mutedC(context)),
+          ),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -272,11 +372,10 @@ class GuardHome extends StatelessWidget {
       final all = store.reports;
       final wait = all.where((r) => r.status == stWait && r.pos == store.guardPos).toList();
       final pend = store.claims.where((c) => c.status == 'Menunggu' && store.find(c.reportId)?.pos == store.guardPos).toList();
-      final verifiedAtPos = all.where((r) => r.pos == store.guardPos && r.status != stWait).take(4).toList();
 
       return ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 115),
+        padding: const EdgeInsets.only(bottom: 120),
         children: [
           _guardHeader(context),
           Padding(
@@ -286,127 +385,130 @@ class GuardHome extends StatelessWidget {
                 index: 1,
                 child: Row(children: [
                   _stat(all.length, 'Total Laporan', const [kDeep, Color(0xFF14532D)]),
-                  _stat(wait.length, 'Perlu Verifikasi', [Colors.orange.shade800, Colors.deepOrange.shade600]),
-                  _stat(pend.length, 'Klaim Menunggu', [Colors.blue.shade800, Colors.indigo.shade600]),
+                  _stat(wait.length, 'Verifikasi', [Colors.orange.shade800, Colors.deepOrange.shade600]),
+                  _stat(pend.length, 'Klaim', [Colors.blue.shade800, Colors.indigo.shade600]),
                 ]),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               FadeSlideIn(
                 index: 2,
                 child: TapScale(
                   onTap: () => _switchPosModal(context),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                     decoration: BoxDecoration(
                       color: softC(context),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: borderC(context)),
                     ),
                     child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
-                        child: const Icon(Icons.shield_rounded, color: Colors.white, size: 22),
-                      ),
-                      const SizedBox(width: 12),
+                      const Icon(Icons.shield_rounded, color: kGreen, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Flexible(
-                              child: Text('Pos Tugas: ${store.guardPos}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
-                              child: Text('Ganti Pos', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark(context) ? Colors.lightGreenAccent : kGreen)),
-                            ),
-                          ]),
-                          const SizedBox(height: 4),
-                          Text('Tunjukkan QR Barcode Pos di menu QR Pos saat pelapor/pengklaim datang.', style: TextStyle(fontSize: 11, color: mutedC(context), height: 1.35)),
-                        ]),
+                        child: Text(
+                          store.guardPos,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+                        child: Text('Ganti Pos', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark(context) ? Colors.lightGreenAccent : kGreen)),
                       ),
                     ]),
                   ),
                 ),
               ),
               const SizedBox(height: 18),
-              FadeSlideIn(
-                index: 3,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Antrean Verifikasi Laporan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                    if (wait.isNotEmpty) Text('${wait.length} antrean', style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w800)),
-                  ]),
-                  Text('Laporan baru dari warga yang membutuhkan verifikasi fisik di pos.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-                  const SizedBox(height: 10),
-                  if (wait.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(16), border: Border.all(color: borderC(context))),
-                      child: Row(children: [
-                        const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 26),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            const Text('Tidak Ada Laporan Menunggu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                            Text('Semua laporan di ${store.guardPos} sudah terverifikasi.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-                          ]),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: softC(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderC(context)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => queueTab = 0),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: queueTab == 0 ? kGreen : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Verifikasi (${wait.length})',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: queueTab == 0 ? Colors.white : mutedC(context),
+                            ),
+                          ),
                         ),
-                      ]),
-                    )
-                  else
-                    for (var i = 0; i < wait.length; i++)
-                      FadeSlideIn(
-                        index: i + 3,
-                        child: ReportTile(wait[i], () => openReport(context, wait[i])),
                       ),
-                ]),
-              ),
-              const SizedBox(height: 18),
-              FadeSlideIn(
-                index: 4,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Klaim Menunggu Verifikasi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                    if (pend.isNotEmpty) Text('${pend.length} klaim', style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w800)),
-                  ]),
-                  Text('Klaim kepemilikan barang dari warga yang menunggu dicocokkan.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-                  const SizedBox(height: 10),
-                  if (pend.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(16), border: Border.all(color: borderC(context))),
-                      child: Row(children: [
-                        const Icon(Icons.assignment_turned_in_outlined, color: Colors.blue, size: 26),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            const Text('Tidak Ada Klaim Menunggu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                            Text('Belum ada klaim barang baru yang perlu diproses.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-                          ]),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => queueTab = 1),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: queueTab == 1 ? kGreen : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Klaim (${pend.length})',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: queueTab == 1 ? Colors.white : mutedC(context),
+                            ),
+                          ),
                         ),
-                      ]),
-                    )
-                  else
-                    for (var i = 0; i < pend.length; i++)
-                      FadeSlideIn(
-                        index: i + 4,
-                        child: ClaimTile(pend[i], () => Navigator.push(context, MaterialPageRoute(builder: (_) => ClaimReviewScreen(pend[i])))),
                       ),
-                ]),
+                    ),
+                  ],
+                ),
               ),
-              if (verifiedAtPos.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                const Text('Aktivitas Terakhir di Pos Ini', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                Text('Laporan yang sudah diproses di ${store.guardPos}.', style: TextStyle(fontSize: 11, color: mutedC(context))),
-                const SizedBox(height: 10),
-                for (var i = 0; i < verifiedAtPos.length; i++)
-                  FadeSlideIn(
-                    index: i + 5,
-                    child: ReportTile(verifiedAtPos[i], () => openReport(context, verifiedAtPos[i])),
-                  ),
+              const SizedBox(height: 12),
+              if (queueTab == 0) ...[
+                if (wait.isEmpty)
+                  _emptyQueueCard(context, 'Tidak ada antrean verifikasi di pos ini.')
+                else
+                  for (final r in wait)
+                    _uniformQueueCard(
+                      context,
+                      icon: Icons.inventory_2_outlined,
+                      accent: Colors.orange.shade800,
+                      title: r.name,
+                      subtitle: '${r.typeLabel} • ${r.owner.split('@').first}',
+                      badge: 'Verifikasi',
+                      onTap: () => openReport(context, r),
+                    ),
+              ] else ...[
+                if (pend.isEmpty)
+                  _emptyQueueCard(context, 'Tidak ada antrean klaim di pos ini.')
+                else
+                  for (final c in pend)
+                    Builder(builder: (context) {
+                      final rep = store.find(c.reportId);
+                      return _uniformQueueCard(
+                        context,
+                        icon: Icons.verified_user_outlined,
+                        accent: const Color(0xFF2563EB),
+                        title: rep?.name ?? c.reportId,
+                        subtitle: 'Pengklaim: ${c.claimer.split('@').first}',
+                        badge: 'Klaim',
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ClaimReviewScreen(c))),
+                      );
+                    }),
               ],
             ]),
           ),
@@ -435,7 +537,7 @@ class _GuardReportListState extends State<GuardReportList> {
             .toList();
         return ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 115),
+          padding: const EdgeInsets.only(bottom: 120),
           children: [
             const BandHeader('Daftar Laporan', subtitle: 'Pantau seluruh laporan & status pos'),
             Padding(
@@ -529,7 +631,6 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
       final bgCol = dark ? kDeep : softC(context);
       final appBg = dark ? kDeep : cardC(context);
       final textCol = dark ? Colors.white : kDeep;
-      final subTextCol = dark ? Colors.white70 : mutedC(context);
       final chipBg = dark ? Colors.white.withValues(alpha: 0.12) : kGreen;
 
       return Scaffold(
@@ -544,7 +645,7 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 115),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
             child: FadeSlideIn(
               index: 0,
               child: Column(children: [
@@ -612,35 +713,8 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Tunjukkan QR Barcode ini ke pelapor/pengklaim. QR akan BERGANTI OTOMATIS setelah 1 warga memindai.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: subTextCol, fontSize: 12, height: 1.35),
-                  ),
-                ),
                 const SizedBox(height: 18),
                 PrimaryButton('Perbarui QR Barcode Baru', () => store.issuePosToken(store.guardPos), outlined: true),
-                const SizedBox(height: 10),
-                Text(
-                  store.posSyncError != null
-                      ? '⚠️ ${store.posSyncError}'
-                      : (store.posSynced
-                      ? '✅ QR tersinkron ke server (siap dipindai HP lain)'
-                      : '⏳ Menyinkronkan QR ke server...'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: store.posSyncError != null
-                        ? Colors.redAccent
-                        : (store.posSynced
-                        ? (dark ? Colors.lightGreenAccent : kGreen)
-                        : subTextCol),
-                  ),
-                ),
               ]),
             ),
           ),
@@ -665,7 +739,7 @@ class ClaimReviewScreen extends StatelessWidget {
         appBar: AppBar(title: const Text('Verifikasi Klaim', style: TextStyle(fontSize: 16))),
         body: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + MediaQuery.viewPaddingOf(context).bottom),
           children: [
             if (r != null)
               FadeSlideIn(
@@ -676,7 +750,7 @@ class ClaimReviewScreen extends StatelessWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(r.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                      Text('${r.id} • ${r.pos}', style: TextStyle(fontSize: 11, color: mutedC(context))),
+                      Text('${r.id}\n${r.pos}', style: TextStyle(fontSize: 11, color: mutedC(context))),
                       const SizedBox(height: 6),
                       StatusChip(c.status),
                     ]),
@@ -716,7 +790,11 @@ class ClaimReviewScreen extends StatelessWidget {
                 m.showSnackBar(const SnackBar(content: Text('Klaim ditolak')));
               }, outlined: true),
             ] else if (c.status == 'Menunggu')
-              Text('Untuk menyetujui, minta pengklaim menampilkan QR Klaim lalu pindai di menu Scan QR.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: mutedC(context))),
+              Text(
+                'Untuk menyetujui, tampilkan QR Barcode Pos Satpam di menu QR Pos agar dipindai oleh pengklaim.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: mutedC(context)),
+              ),
           ],
         ),
       );
@@ -742,37 +820,40 @@ class HandoverDoneScreen extends StatelessWidget {
     final r = store.find(c.reportId);
     return Scaffold(
       appBar: AppBar(title: const Text('Serah Terima Barang', style: TextStyle(fontSize: 16))),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(children: [
-          const SizedBox(height: 12),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.4, end: 1.0),
-            duration: const Duration(milliseconds: 520),
-            curve: Curves.elasticOut,
-            builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
-            child: const CircleAvatar(radius: 36, backgroundColor: kGreen, child: Icon(Icons.check_rounded, size: 40, color: Colors.white)),
-          ),
-          const SizedBox(height: 14),
-          const Text('Serah Terima Berhasil!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 20),
-          FadeSlideIn(
-            index: 1,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: borderC(context))),
-              child: Column(children: [
-                _row('Kode Klaim', c.id),
-                _row('Barang', r?.name ?? '-'),
-                _row('Penerima', c.claimer),
-                _row('Waktu', fmtDate(DateTime.now())),
-                _row('Petugas', '${store.name} • ${store.guardPos}'),
-              ]),
+      body: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(children: [
+            const SizedBox(height: 12),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.4, end: 1.0),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.elasticOut,
+              builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+              child: const CircleAvatar(radius: 36, backgroundColor: kGreen, child: Icon(Icons.check_rounded, size: 40, color: Colors.white)),
             ),
-          ),
-          const Spacer(),
-          PrimaryButton('Kembali ke Dashboard', () => Navigator.popUntil(context, (r) => r.isFirst)),
-        ]),
+            const SizedBox(height: 14),
+            const Text('Serah Terima Berhasil!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 20),
+            FadeSlideIn(
+              index: 1,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: borderC(context))),
+                child: Column(children: [
+                  _row('Kode Klaim', c.id),
+                  _row('Barang', r?.name ?? '-'),
+                  _row('Penerima', c.claimer),
+                  _row('Waktu', fmtDate(DateTime.now())),
+                  _row('Petugas', '${store.name}\n${store.guardPos}'),
+                ]),
+              ),
+            ),
+            const Spacer(),
+            PrimaryButton('Kembali ke Dashboard', () => Navigator.popUntil(context, (r) => r.isFirst)),
+          ]),
+        ),
       ),
     );
   }
