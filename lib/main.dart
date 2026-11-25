@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'auth_screens.dart';
 import 'core.dart';
 import 'firebase_options.dart';
+import 'splash_screen.dart';
+import 'unesa_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +16,7 @@ Future<void> main() async {
   );
 
   await settings.load();
+  await UnesaLogoCache.ensureLoaded();
 
   if (!kIsWeb) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -202,7 +205,9 @@ class CampusFindApp extends StatelessWidget {
               ),
             );
           },
-          home: const SplashScreen(),
+          home: const CampusSplashScreen(
+            nextScreen: ChooseLoginScreen(),
+          ),
         );
       },
     );

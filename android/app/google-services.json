@@ -12,7 +12,20 @@
           "package_name": "com.example.campusfind_unesa"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "669075448582-eedel25hf1qf19htu32mpm5934lug0cm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.campusfind_unesa",
+            "certificate_hash": "2c25cedd2ca9312c5f8b7284f762276a2e40afbd"
+          }
+        },
+        {
+          "client_id": "669075448582-aljm47i24tjgkmrtcjt6rstdjgc2dg0i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCIVLxzBIGjlzllS4lKXFWVsjyl2wMgAdE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "669075448582-aljm47i24tjgkmrtcjt6rstdjgc2dg0i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

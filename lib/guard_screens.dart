@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'cartoon.dart';
 import 'core.dart';
@@ -20,55 +19,63 @@ class _GuardShellState extends State<GuardShell> {
 
   @override
   Widget build(BuildContext context) {
-    const pages = [
-      GuardHome(),
-      GuardReportList(),
-      GuardScanScreen(),
-      ProfileScreen(),
+    final pages = [
+      GuardHome(onGo: (i) => setState(() => tab = i)),
+      const GuardReportList(),
+      const GuardScanScreen(),
+      const ProfileScreen(),
     ];
 
-    return Scaffold(
-      extendBody: true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 240),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, anim) => FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.985, end: 1.0).animate(anim),
-            child: child,
+    return PopScope(
+      canPop: tab == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (tab != 0) setState(() => tab = 0);
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.985, end: 1.0).animate(anim),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(tab),
+            child: pages[tab],
           ),
         ),
-        child: KeyedSubtree(
-          key: ValueKey(tab),
-          child: pages[tab],
+        bottomNavigationBar: ListenableBuilder(
+          listenable: store,
+          builder: (context, _) {
+            final n = store.reports.where((r) => r.status == stWait).length +
+                store.claims.where((c) => c.status == 'Menunggu').length;
+            return FloatingNav(
+              index: tab,
+              onTap: (i) => setState(() => tab = i),
+              centerTooltip: 'QR Pos Satpam',
+              items: [
+                NavItem(Icons.dashboard_outlined, Icons.dashboard_rounded, 'Beranda', badge: n),
+                const NavItem(Icons.list_alt_outlined, Icons.list_alt_rounded, 'Laporan'),
+                const NavItem(Icons.qr_code_2_outlined, Icons.qr_code_2_rounded, 'QR Pos'),
+                const NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profil'),
+              ],
+            );
+          },
         ),
-      ),
-      bottomNavigationBar: ListenableBuilder(
-        listenable: store,
-        builder: (context, _) {
-          final n = store.reports.where((r) => r.status == stWait).length +
-              store.claims.where((c) => c.status == 'Menunggu').length;
-          return FloatingNav(
-            index: tab,
-            onTap: (i) => setState(() => tab = i),
-            centerTooltip: 'QR Pos Satpam',
-            items: [
-              NavItem(Icons.dashboard_outlined, Icons.dashboard_rounded, 'Beranda', badge: n),
-              const NavItem(Icons.list_alt_outlined, Icons.list_alt_rounded, 'Laporan'),
-              const NavItem(Icons.qr_code_2_outlined, Icons.qr_code_2_rounded, 'QR Pos'),
-              const NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profil'),
-            ],
-          );
-        },
       ),
     );
   }
 }
 
 class GuardHome extends StatefulWidget {
-  const GuardHome({super.key});
+  final void Function(int)? onGo;
+  const GuardHome({super.key, this.onGo});
   @override
   State<GuardHome> createState() => _GuardHomeState();
 }
@@ -76,35 +83,57 @@ class GuardHome extends StatefulWidget {
 class _GuardHomeState extends State<GuardHome> {
   int queueTab = 0; // 0 = Verifikasi Laporan, 1 = Verifikasi Klaim
 
-  Widget _stat(int val, String label, List<Color> gradientColors) => Expanded(
-    child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradientColors,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors.first.withValues(alpha: 0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+  Widget _stat(BuildContext context, int val, String label, Color accent) {
+    final dark = isDark(context);
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: dark ? const Color(0xFF13291F) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
           ),
-        ],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        AnimatedCounter(
-          val,
-          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
+          boxShadow: [
+            BoxShadow(
+              color: (dark ? Colors.black : kDeep).withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)),
-      ]),
-    ),
-  );
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: dark ? Colors.white : accent,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          AnimatedCounter(
+            val,
+            style: TextStyle(
+              color: dark ? Colors.white : kForestSolid,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 
   void _switchPosModal(BuildContext context) {
     showModalBottomSheet(
@@ -115,14 +144,14 @@ class _GuardHomeState extends State<GuardHome> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Pilih Pos Satpam Tugas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            sectionHeading(ctx, 'Pilih Pos Satpam Tugas'),
             const SizedBox(height: 12),
             for (final pos in posList)
               ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                leading: Icon(Icons.location_on_rounded, color: store.guardPos == pos ? kGreen : Colors.grey),
+                leading: Icon(Icons.location_on_rounded, color: store.guardPos == pos ? kEmeraldSolid : Colors.grey),
                 title: Text(pos, style: TextStyle(fontWeight: store.guardPos == pos ? FontWeight.w700 : FontWeight.w500)),
-                trailing: store.guardPos == pos ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
+                trailing: store.guardPos == pos ? const Icon(Icons.check_circle_rounded, color: kEmeraldSolid) : null,
                 onTap: () {
                   store.guardPos = pos;
                   store.issuePosToken(pos);
@@ -130,132 +159,6 @@ class _GuardHomeState extends State<GuardHome> {
                 },
               ),
           ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _guardHeader(BuildContext context) {
-    final dark = isDark(context);
-    final name = store.name.isEmpty ? 'Petugas Pos' : store.name;
-    String? brandFont;
-    try {
-      brandFont = GoogleFonts.syne().fontFamily;
-    } catch (_) {}
-
-    return CartoonHeader(
-      height: 240,
-      bx: .5,
-      bs: .52,
-      groundY: .82,
-      sunX: .82,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const AppLogo(size: 50),
-                  const SizedBox(width: 11),
-                  Flexible(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: dark
-                                ? const Color(0xFF0F172A).withValues(alpha: 0.68)
-                                : Colors.white.withValues(alpha: 0.76),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: dark
-                                  ? const Color(0xFF94A3B8).withValues(alpha: 0.25)
-                                  : Colors.white.withValues(alpha: 0.85),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: dark ? 0.32 : 0.08),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Campus',
-                                    style: TextStyle(
-                                      fontFamily: brandFont,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.6,
-                                      height: 1.0,
-                                      color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0B357A),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      'Find',
-                                      style: TextStyle(
-                                        fontFamily: brandFont,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.3,
-                                        height: 1.0,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Halo, $name! 🛡️ • ${store.guardPos}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -279,12 +182,14 @@ class _GuardHomeState extends State<GuardHome> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            color: cardC(context),
+            color: dark ? const Color(0xFF13291F) : Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderC(context)),
+            border: Border.all(
+              color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? 0.18 : 0.03),
+                color: (dark ? Colors.black : kDeep).withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -328,10 +233,11 @@ class _GuardHomeState extends State<GuardHome> {
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: accent.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   badge,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accent),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: dark ? Colors.white : accent),
                 ),
               ),
               const SizedBox(width: 4),
@@ -343,178 +249,218 @@ class _GuardHomeState extends State<GuardHome> {
     );
   }
 
-  Widget _emptyQueueCard(BuildContext context, String text) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-    decoration: BoxDecoration(
-      color: cardC(context),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: borderC(context)),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: mutedC(context)),
-          ),
+  Widget _emptyQueueCard(BuildContext context, String text) {
+    final dark = isDark(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF13291F) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
         ),
-      ],
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
-    builder: (context, _) {
-      final all = store.reports;
-      final wait = all.where((r) => r.status == stWait && r.pos == store.guardPos).toList();
-      final pend = store.claims.where((c) => c.status == 'Menunggu' && store.find(c.reportId)?.pos == store.guardPos).toList();
-
-      return ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 120),
+      ),
+      child: Row(
         children: [
-          _guardHeader(context),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              FadeSlideIn(
-                index: 1,
-                child: Row(children: [
-                  _stat(all.length, 'Total Laporan', const [kDeep, Color(0xFF14532D)]),
-                  _stat(wait.length, 'Verifikasi', [Colors.orange.shade800, Colors.deepOrange.shade600]),
-                  _stat(pend.length, 'Klaim', [Colors.blue.shade800, Colors.indigo.shade600]),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              FadeSlideIn(
-                index: 2,
-                child: TapScale(
-                  onTap: () => _switchPosModal(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    decoration: BoxDecoration(
-                      color: softC(context),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderC(context)),
-                    ),
-                    child: Row(children: [
-                      const Icon(Icons.shield_rounded, color: kGreen, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          store.guardPos,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
-                        child: Text('Ganti Pos', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark(context) ? Colors.lightGreenAccent : kGreen)),
-                      ),
-                    ]),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: softC(context),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderC(context)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => queueTab = 0),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: queueTab == 0 ? kGreen : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            'Verifikasi (${wait.length})',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: queueTab == 0 ? Colors.white : mutedC(context),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => queueTab = 1),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: queueTab == 1 ? kGreen : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            'Klaim (${pend.length})',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: queueTab == 1 ? Colors.white : mutedC(context),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (queueTab == 0) ...[
-                if (wait.isEmpty)
-                  _emptyQueueCard(context, 'Tidak ada antrean verifikasi di pos ini.')
-                else
-                  for (final r in wait)
-                    _uniformQueueCard(
-                      context,
-                      icon: Icons.inventory_2_outlined,
-                      accent: Colors.orange.shade800,
-                      title: r.name,
-                      subtitle: '${r.typeLabel} • ${r.owner.split('@').first}',
-                      badge: 'Verifikasi',
-                      onTap: () => openReport(context, r),
-                    ),
-              ] else ...[
-                if (pend.isEmpty)
-                  _emptyQueueCard(context, 'Tidak ada antrean klaim di pos ini.')
-                else
-                  for (final c in pend)
-                    Builder(builder: (context) {
-                      final rep = store.find(c.reportId);
-                      return _uniformQueueCard(
-                        context,
-                        icon: Icons.verified_user_outlined,
-                        accent: const Color(0xFF2563EB),
-                        title: rep?.name ?? c.reportId,
-                        subtitle: 'Pengklaim: ${c.claimer.split('@').first}',
-                        badge: 'Klaim',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ClaimReviewScreen(c))),
-                      );
-                    }),
-              ],
-            ]),
+          const Icon(Icons.check_circle_outline_rounded, color: kEmeraldSolid, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: mutedC(context)),
+            ),
           ),
         ],
-      );
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: queueTab == 0,
+    onPopInvokedWithResult: (didPop, result) {
+      if (didPop) return;
+      if (queueTab != 0) setState(() => queueTab = 0);
     },
+    child: ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final dark = isDark(context);
+        final all = store.reports;
+        final wait = all.where((r) => r.status == stWait && r.pos == store.guardPos).toList();
+        final pend = store.claims.where((c) => c.status == 'Menunggu' && store.find(c.reportId)?.pos == store.guardPos).toList();
+
+        return ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 120),
+          children: [
+            HomeHeader(
+              name: store.name.isEmpty ? 'Petugas Pos' : store.name,
+              subtitle: store.guardPos,
+              onProfile: () => widget.onGo?.call(3),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const FadeSlideIn(index: 0, child: HomeHoursCard()),
+                const SizedBox(height: 20),
+                sectionHeading(context, 'Ringkasan Pos Satpam'),
+                const SizedBox(height: 10),
+                FadeSlideIn(
+                  index: 1,
+                  child: Row(children: [
+                    _stat(context, all.length, 'Total Laporan', kEmeraldSolid),
+                    _stat(context, wait.length, 'Verifikasi', Colors.amber.shade800),
+                    _stat(context, pend.length, 'Klaim', const Color(0xFF2563EB)),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                FadeSlideIn(
+                  index: 2,
+                  child: TapScale(
+                    onTap: () => _switchPosModal(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                      decoration: BoxDecoration(
+                        color: dark ? const Color(0xFF13291F) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
+                        ),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.shield_rounded, color: kEmeraldSolid, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            store.guardPos,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: kEmeraldSolid.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: kEmeraldSolid.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            'Ganti Pos',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: dark ? const Color(0xFF6EE7B7) : kEmeraldSolid,
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                sectionHeading(context, 'Antrean Tugas'),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: dark ? const Color(0xFF13291F) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => queueTab = 0),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: queueTab == 0 ? kEmeraldSolid : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Verifikasi (${wait.length})',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: queueTab == 0 ? Colors.white : mutedC(context),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => queueTab = 1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: queueTab == 1 ? kEmeraldSolid : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Klaim (${pend.length})',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: queueTab == 1 ? Colors.white : mutedC(context),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (queueTab == 0) ...[
+                  if (wait.isEmpty)
+                    _emptyQueueCard(context, 'Tidak ada antrean verifikasi di pos ini.')
+                  else
+                    for (final r in wait)
+                      _uniformQueueCard(
+                        context,
+                        icon: Icons.inventory_2_outlined,
+                        accent: Colors.amber.shade800,
+                        title: r.name,
+                        subtitle: '${r.typeLabel} • ${r.owner.split('@').first}',
+                        badge: 'Verifikasi',
+                        onTap: () => openReport(context, r),
+                      ),
+                ] else ...[
+                  if (pend.isEmpty)
+                    _emptyQueueCard(context, 'Tidak ada antrean klaim di pos ini.')
+                  else
+                    for (final c in pend)
+                      Builder(builder: (context) {
+                        final rep = store.find(c.reportId);
+                        return _uniformQueueCard(
+                          context,
+                          icon: Icons.verified_user_outlined,
+                          accent: const Color(0xFF2563EB),
+                          title: rep?.name ?? c.reportId,
+                          subtitle: 'Pengklaim: ${c.claimer.split('@').first}',
+                          badge: 'Klaim',
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ClaimReviewScreen(c))),
+                        );
+                      }),
+                ],
+                const SizedBox(height: 22),
+                const HomeNewsSection(),
+              ]),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 
@@ -546,12 +492,16 @@ class _GuardReportListState extends State<GuardReportList> {
                 FadeSlideIn(
                   index: 0,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    sectionHeading(context, 'Filter Laporan'),
+                    const SizedBox(height: 10),
                     FilterChips(const ['Semua', 'Hilang', 'Ditemukan', stWait, stClaimed, stDone], f, (v) => setState(() => f = v)),
                     const SizedBox(height: 8),
                     FilterChips(['Semua Pos', ...posList], p, (v) => setState(() => p = v)),
                   ]),
                 ),
                 const SizedBox(height: 14),
+                sectionHeading(context, 'Arsip Laporan', trailing: '${list.length} data'),
+                const SizedBox(height: 10),
                 if (list.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(28),
@@ -630,8 +580,8 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
 
       final bgCol = dark ? kDeep : softC(context);
       final appBg = dark ? kDeep : cardC(context);
-      final textCol = dark ? Colors.white : kDeep;
-      final chipBg = dark ? Colors.white.withValues(alpha: 0.12) : kGreen;
+      final textCol = dark ? Colors.white : kForestSolid;
+      final chipBg = dark ? const Color(0xFF13291F) : Colors.white;
 
       return Scaffold(
         backgroundColor: bgCol,
@@ -645,24 +595,28 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
             child: FadeSlideIn(
               index: 0,
               child: Column(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: chipBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+                  ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.location_on_rounded, color: dark ? Colors.amber : Colors.white, size: 18),
+                    const Icon(Icons.location_on_rounded, color: kEmeraldSolid, size: 18),
                     const SizedBox(width: 6),
-                    Text(store.guardPos, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                    Text(store.guardPos, style: TextStyle(color: textCol, fontWeight: FontWeight.w700, fontSize: 13)),
                   ]),
                 ),
                 const SizedBox(height: 16),
                 if (_initializing || store.posToken.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(color: kEmeraldSolid),
                   )
                 else
                   AnimatedSwitcher(
@@ -679,15 +633,15 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: dark ? 0.35 : 0.08),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
+                            color: Colors.black.withValues(alpha: dark ? 0.35 : 0.06),
+                            blurRadius: 16,
+                            offset: const Offset(0, 5),
                           ),
                         ],
-                        border: Border.all(color: dark ? Colors.transparent : borderC(context)),
+                        border: Border.all(color: const Color(0xFFD1E7DD)),
                       ),
                       child: QrImageView(data: payload, size: 185, backgroundColor: Colors.white),
                     ),
@@ -695,12 +649,26 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
                 const SizedBox(height: 14),
                 Text(code, textAlign: TextAlign.center, style: TextStyle(color: textCol, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1)),
                 const SizedBox(height: 8),
-                Chip(
-                  avatar: const Icon(Icons.timer_rounded, size: 16, color: kDeep),
-                  backgroundColor: Colors.amber,
-                  label: Text(expired ? 'Kedaluwarsa' : 'Berlaku ${_mmss(left)}', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.timer_rounded, size: 15, color: Colors.amber.shade800),
+                      const SizedBox(width: 5),
+                      Text(
+                        expired ? 'Kedaluwarsa' : 'Berlaku ${_mmss(left)}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: dark ? Colors.amber.shade200 : Colors.amber.shade900),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 SizedBox(
                   width: 180,
                   child: ClipRRect(
@@ -708,8 +676,8 @@ class _GuardScanScreenState extends State<GuardScanScreen> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 5,
-                      color: Colors.amber,
-                      backgroundColor: dark ? Colors.white24 : borderC(context),
+                      color: kEmeraldSolid,
+                      backgroundColor: dark ? Colors.white24 : const Color(0xFFD1E7DD),
                     ),
                   ),
                 ),
@@ -765,9 +733,9 @@ class ClaimReviewScreen extends StatelessWidget {
                 InfoRow(Icons.tag_rounded, 'Kode Klaim', c.id),
                 InfoRow(Icons.calendar_today_outlined, 'Diajukan', fmtDate(c.date)),
                 const SizedBox(height: 6),
-                const Text('Pencocokan Detail Rahasia', style: TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                SecretBox('Detail rahasia pada laporan (pelapor & satpam)', r?.secret ?? '-'),
+                sectionHeading(context, 'Pencocokan Ciri Barang'),
+                const SizedBox(height: 10),
+                SecretBox('Deskripsi & ciri-ciri pada laporan', r?.description ?? '-'),
                 SecretBox('Jawaban pengklaim', c.answer, color: Colors.orange.shade800),
                 if (c.proof.isNotEmpty) InfoRow(Icons.description_outlined, 'Bukti tambahan', c.proof),
                 if (c.photo != null) ...[
@@ -831,16 +799,16 @@ class HandoverDoneScreen extends StatelessWidget {
               duration: const Duration(milliseconds: 520),
               curve: Curves.elasticOut,
               builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
-              child: const CircleAvatar(radius: 36, backgroundColor: kGreen, child: Icon(Icons.check_rounded, size: 40, color: Colors.white)),
+              child: const CircleAvatar(radius: 36, backgroundColor: kEmeraldSolid, child: Icon(Icons.check_rounded, size: 40, color: Colors.white)),
             ),
             const SizedBox(height: 14),
             const Text('Serah Terima Berhasil!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 20),
             FadeSlideIn(
               index: 1,
-              child: Container(
+              child: EmeraldGlass(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: borderC(context))),
+                borderRadius: 18,
                 child: Column(children: [
                   _row('Kode Klaim', c.id),
                   _row('Barang', r?.name ?? '-'),

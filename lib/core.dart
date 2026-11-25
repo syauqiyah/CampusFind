@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const kGreen = Color(0xFF1FA35C);
@@ -269,10 +270,56 @@ double matchScore(Report lost, Report found) {
 
 const matchThreshold = 0.5;
 
+// ------------------------------------------------------------------ model pengguna
+class AppUser {
+  final String uid;
+  final String name;
+  final String email;
+  final String nim;
+  final String role;
+  final String postName;
+  final String photoUrl;
+
+  AppUser({
+    required this.uid,
+    required this.name,
+    required this.email,
+    this.nim = '',
+    required this.role,
+    this.postName = '',
+    this.photoUrl = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'uid': uid,
+    'name': name,
+    'email': email,
+    'nim': nim,
+    'role': role,
+    'postName': postName,
+    'photoUrl': photoUrl,
+  };
+
+  factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
+    uid: (json['uid'] ?? '') as String,
+    name: (json['name'] ?? '') as String,
+    email: (json['email'] ?? '') as String,
+    nim: (json['nim'] ?? '') as String,
+    role: (json['role'] ?? '') as String,
+    postName: (json['postName'] ?? '') as String,
+    photoUrl: (json['photoUrl'] ?? '') as String,
+  );
+}
+
+typedef AppStore = Store;
+
 // ------------------------------------------------------------------ store (Firestore Real-time)
 class Store extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
   final _rnd = Random.secure();
+
+  AppUser? currentUser;
+  bool get isLoggedIn => currentUser != null;
 
   String email = '';
   String customName = '';
@@ -294,10 +341,94 @@ class Store extends ChangeNotifier {
 
   String get name {
     if (customName.trim().isNotEmpty) return customName.trim();
+    if (currentUser?.name.isNotEmpty == true) return currentUser!.name.trim();
     if (guard) return 'Bapak Ahmad';
     final raw = email.split('@').first.replaceAll(RegExp(r'[._\-\d]+'), ' ').trim();
     if (raw.isEmpty) return 'Warga UNESA';
     return raw.split(' ').where((e) => e.isNotEmpty).map((e) => e[0].toUpperCase() + e.substring(1)).join(' ');
+  }
+
+  Future<void> login({
+    required String uid,
+    required String name,
+    required String email,
+    String nim = '',
+    required String role,
+    String postName = '',
+    String photoUrl = '',
+  }) async {
+    final user = AppUser(
+      uid: uid,
+      name: name,
+      email: email,
+      nim: nim,
+      role: role,
+      postName: postName,
+      photoUrl: photoUrl,
+    );
+    await saveSession(user);
+  }
+
+  Future<void> saveSession(AppUser user) async {
+    currentUser = user;
+    guard = (user.role == 'satpam' || user.role == 'guard');
+    email = user.email;
+    if (user.name.isNotEmpty) customName = user.name;
+    if (guard && user.postName.isNotEmpty) guardPos = user.postName;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_logged_in', true);
+    await prefs.setString('user_uid', user.uid);
+    await prefs.setString('user_name', user.name);
+    await prefs.setString('user_email', user.email);
+    await prefs.setString('user_nim', user.nim);
+    await prefs.setString('user_role', user.role);
+    await prefs.setString('user_post_name', user.postName);
+    await prefs.setString('user_photo_url', user.photoUrl);
+
+    notifyListeners();
+  }
+
+  Future<void> restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedInPref = prefs.getBool('is_logged_in') ?? false;
+
+    if (isLoggedInPref) {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      final savedUid = prefs.getString('user_uid') ?? '';
+      final savedEmail = prefs.getString('user_email') ?? '';
+
+      final finalUid = (firebaseUser?.uid != null && firebaseUser!.uid.isNotEmpty)
+          ? firebaseUser.uid
+          : savedUid;
+      final finalEmail = (firebaseUser?.email != null && firebaseUser!.email!.isNotEmpty)
+          ? firebaseUser.email!
+          : savedEmail;
+
+      final savedName = prefs.getString('user_name') ?? '';
+      final savedNim = prefs.getString('user_nim') ?? '';
+      final savedRole = prefs.getString('user_role') ?? (guard ? 'satpam' : 'mahasiswa');
+      final savedPostName = prefs.getString('user_post_name') ?? guardPos;
+      final savedPhotoUrl = prefs.getString('user_photo_url') ?? firebaseUser?.photoURL ?? '';
+
+      currentUser = AppUser(
+        uid: finalUid,
+        name: savedName,
+        email: finalEmail,
+        nim: savedNim,
+        role: savedRole,
+        postName: savedPostName,
+        photoUrl: savedPhotoUrl,
+      );
+
+      guard = (savedRole == 'satpam' || savedRole == 'guard');
+      email = finalEmail;
+      if (savedName.isNotEmpty) customName = savedName;
+      if (guard && savedPostName.isNotEmpty) guardPos = savedPostName;
+    } else {
+      currentUser = null;
+    }
+    notifyListeners();
   }
 
   Future<void> updateName(String newName) async {
@@ -379,16 +510,33 @@ class Store extends ChangeNotifier {
       notifyListeners();
     });
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null && !guard) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? currentUser?.uid;
+    if (uid != null && uid.isNotEmpty && !guard) {
       try {
         final doc = await _db.collection('users').doc(uid).get();
-        final savedName = doc.data()?['name'] as String?;
+        final data = doc.data();
+        final savedName = data?['name'] as String?;
+        final savedNim = data?['nim'] as String?;
+        final savedPhotoUrl = data?['photoUrl'] as String?;
         if (savedName != null && savedName.trim().isNotEmpty) {
           customName = savedName.trim();
           await p.setString(_nameStorageKey, customName);
-          notifyListeners();
         }
+        if (currentUser != null) {
+          currentUser = AppUser(
+            uid: currentUser!.uid,
+            name: customName.isNotEmpty ? customName : currentUser!.name,
+            email: currentUser!.email,
+            nim: (savedNim != null && savedNim.isNotEmpty) ? savedNim : currentUser!.nim,
+            role: currentUser!.role,
+            postName: currentUser!.postName,
+            photoUrl: (savedPhotoUrl != null && savedPhotoUrl.isNotEmpty) ? savedPhotoUrl : currentUser!.photoUrl,
+          );
+          await p.setString('user_name', currentUser!.name);
+          await p.setString('user_nim', currentUser!.nim);
+          await p.setString('user_photo_url', currentUser!.photoUrl);
+        }
+        notifyListeners();
       } catch (_) {}
     }
   }
@@ -805,12 +953,28 @@ class Store extends ChangeNotifier {
     email = '';
     customName = '';
     guard = false;
-    notifyListeners();
+    currentUser = null;
+
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
     try {
       await FirebaseAuth.instance.signOut();
     } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('is_logged_in');
+    await prefs.remove('user_uid');
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+    await prefs.remove('user_nim');
+    await prefs.remove('user_role');
+    await prefs.remove('user_post_name');
     await prefs.remove('guard_logged_in');
+    await prefs.remove('guard_id');
+    await prefs.remove('guard_pos');
+
+    notifyListeners();
   }
 }
 

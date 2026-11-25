@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'api_keys.dart';
 import 'cartoon.dart';
 import 'core.dart';
 import 'guard_screens.dart';
@@ -10,7 +15,7 @@ import 'profile_screen.dart';
 import 'sound.dart';
 import 'widgets.dart';
 
-/// Pelapor & satpam melihat detail lengkap (termasuk detail rahasia). Warga lain hanya detail publik.
+/// Pelapor & satpam melihat detail lengkap (termasuk detail rahasia). Mahasiswa lain hanya detail publik.
 Widget detailFor(Report r) => (store.guard || r.owner == store.email) ? FullDetailScreen(r) : PublicDetailScreen(r);
 void openReport(BuildContext c, Report r) => Navigator.push(c, MaterialPageRoute(builder: (_) => detailFor(r)));
 
@@ -71,28 +76,35 @@ class _StudentShellState extends State<StudentShell> {
   void go(int i) => setState(() => tab = i);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    extendBody: true,
-    body: IndexedStack(index: tab, children: [
-      StudentHome(onGo: go),
-      const ReportHub(),
-      const SearchScreen(),
-      const NotificationsScreen(),
-      const ProfileScreen(),
-    ]),
-    bottomNavigationBar: ListenableBuilder(
-      listenable: store,
-      builder: (context, _) => FloatingNav(
-        index: tab,
-        onTap: go,
-        centerTooltip: 'Cari Barang',
-        items: [
-          const NavItem(Icons.home_outlined, Icons.home, 'Beranda'),
-          const NavItem(Icons.assignment_outlined, Icons.assignment, 'Laporan'),
-          const NavItem(Icons.search, Icons.search, 'Cari'),
-          NavItem(Icons.notifications_none, Icons.notifications, 'Notifikasi', badge: store.unread(store.email)),
-          const NavItem(Icons.person_outline, Icons.person, 'Profil'),
-        ],
+  Widget build(BuildContext context) => PopScope(
+    canPop: tab == 0,
+    onPopInvokedWithResult: (didPop, result) {
+      if (didPop) return;
+      if (tab != 0) setState(() => tab = 0);
+    },
+    child: Scaffold(
+      extendBody: true,
+      body: IndexedStack(index: tab, children: [
+        StudentHome(onGo: go),
+        const ReportHub(),
+        const SearchScreen(),
+        const NotificationsScreen(),
+        const ProfileScreen(),
+      ]),
+      bottomNavigationBar: ListenableBuilder(
+        listenable: store,
+        builder: (context, _) => FloatingNav(
+          index: tab,
+          onTap: go,
+          centerTooltip: 'Cari Barang',
+          items: [
+            const NavItem(Icons.home_outlined, Icons.home, 'Beranda'),
+            const NavItem(Icons.assignment_outlined, Icons.assignment, 'Laporan'),
+            const NavItem(Icons.search, Icons.search, 'Cari'),
+            NavItem(Icons.notifications_none, Icons.notifications, 'Notifikasi', badge: store.unread(store.email)),
+            const NavItem(Icons.person_outline, Icons.person, 'Profil'),
+          ],
+        ),
       ),
     ),
   );
@@ -107,323 +119,24 @@ class StudentHome extends StatefulWidget {
 }
 
 class _StudentHomeState extends State<StudentHome> {
-  Widget _header(BuildContext context) {
-    final dark = isDark(context);
-    final name = store.name.isEmpty ? 'Warga UNESA' : store.name;
-    String? brandFont;
-    try {
-      brandFont = GoogleFonts.syne().fontFamily;
-    } catch (_) {}
-
-    return CartoonHeader(
-      height: 320,
-      bx: .5,
-      bs: .52,
-      groundY: .80,
-      sunX: .82,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const AppLogo(size: 50),
-                  const SizedBox(width: 11),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: dark
-                              ? const Color(0xFF0F172A).withValues(alpha: 0.68)
-                              : Colors.white.withValues(alpha: 0.76),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: dark
-                                ? const Color(0xFF94A3B8).withValues(alpha: 0.25)
-                                : Colors.white.withValues(alpha: 0.85),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: dark ? 0.32 : 0.08),
-                              blurRadius: 14,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Campus',
-                                  style: TextStyle(
-                                    fontFamily: brandFont,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.6,
-                                    height: 1.0,
-                                    color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0B357A),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    'Find',
-                                    style: TextStyle(
-                                      fontFamily: brandFont,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.3,
-                                      height: 1.0,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Halo, $name! ✨',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _guardHoursCard(BuildContext context) {
-    final dark = isDark(context);
-    final hour = DateTime.now().hour;
-    final isOpen = hour >= 7 && hour < 21;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardC(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderC(context)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.22 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: kGreen.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.shield_outlined, color: kGreen, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Jam Operasional Pos Satpam',
-                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (isOpen ? kGreen : Colors.orange).withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        isOpen ? 'Buka' : 'Tutup',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isOpen ? (dark ? const Color(0xFF6EE7B7) : kDeep) : Colors.orange.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '07.00 – 21.00 WIB • Senin – Sabtu',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Pos Gerbang Depan & Gerbang Belakang',
-                  style: TextStyle(fontSize: 11.5, color: mutedC(context)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _newsItem(
-      BuildContext context, {
-        required IconData icon,
-        required Color accent,
-        required String title,
-        required String subtitle,
-        VoidCallback? onTap,
-      }) {
-    final dark = isDark(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: cardC(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: borderC(context)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: dark ? 0.18 : 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: accent, size: 19),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: mutedC(context)),
-                  ),
-                ],
-              ),
-            ),
-            if (onTap != null) ...[
-              const SizedBox(width: 6),
-              Icon(Icons.chevron_right_rounded, size: 18, color: mutedC(context)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,
     builder: (context, _) {
-      final pub = store.reports.where((r) => r.isPublic).toList();
-      final foundCount = pub.where((r) => r.type == ReportType.ditemukan).length;
-      final lostCount = pub.where((r) => r.type == ReportType.hilang).length;
-
+      final name = store.name.isEmpty ? 'Mahasiswa UNESA' : store.name;
       return CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(child: _header(context)),
+          SliverToBoxAdapter(
+            child: HomeHeader(name: name, onProfile: () => widget.onGo(4)),
+          ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                _guardHoursCard(context),
-                const SizedBox(height: 20),
-                const Text(
-                  'Berita Terkini',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                _newsItem(
-                  context,
-                  icon: Icons.inventory_2_outlined,
-                  accent: kGreen,
-                  title: 'Barang Temuan',
-                  subtitle: '$foundCount barang diamankan di pos & siap diklaim.',
-                  onTap: () => widget.onGo(2),
-                ),
-                const SizedBox(height: 10),
-                _newsItem(
-                  context,
-                  icon: Icons.search_rounded,
-                  accent: const Color(0xFF2563EB),
-                  title: 'Laporan Kehilangan',
-                  subtitle: '$lostCount laporan aktif sedang dicocokkan sistem.',
-                  onTap: () => widget.onGo(2),
-                ),
-                const SizedBox(height: 10),
-                _newsItem(
-                  context,
-                  icon: Icons.qr_code_scanner_rounded,
-                  accent: const Color(0xFFD97706),
-                  title: 'Verifikasi Laporan',
-                  subtitle: 'Scan QR di pos maks. 5 menit agar laporan tayang.',
-                  onTap: () => widget.onGo(1),
-                ),
+                const HomeHoursCard(),
+                const SizedBox(height: 22),
+                const HomeNewsSection(),
               ]),
             ),
           ),
@@ -445,11 +158,15 @@ class _ReportHubState extends State<ReportHub> {
 
   Widget _tile(BuildContext c, IconData icon, String title, String sub, Color tint, Color circle, Color iconColor, bool found) => Expanded(
     child: InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => ReportFormScreen(found: found))),
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 18, 12, 16),
-        decoration: BoxDecoration(color: isDark(c) ? tint.withValues(alpha: .16) : tint, borderRadius: BorderRadius.circular(22)),
+        decoration: BoxDecoration(
+          color: isDark(c) ? tint.withValues(alpha: .16) : tint,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isDark(c) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+        ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           CircleAvatar(radius: 28, backgroundColor: circle, child: Icon(icon, color: iconColor, size: 28)),
           const SizedBox(height: 10),
@@ -472,23 +189,25 @@ class _ReportHubState extends State<ReportHub> {
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Buat Laporan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            sectionHeading(context, 'Buat Laporan'),
             const SizedBox(height: 10),
             IntrinsicHeight(
               child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _tile(context, Icons.description, 'Laporkan Barang Hilang', 'Barangku hilang', const Color(0xFFE6F0FF), const Color(0xFFCFE2FF), const Color(0xFF1F4E9C), false),
+                _tile(context, Icons.description, 'Laporkan Barang Hilang', 'Barangku hilang', const Color(0xFFF1F5F9), const Color(0xFFE2E8F0), kSlateSubLabel, false),
                 const SizedBox(width: 12),
                 _tile(context, Icons.inventory_2, 'Laporkan Barang Ditemukan', 'Aku menemukan barang', const Color(0xFFFFF3D4), const Color(0xFFFFD98A), const Color(0xFF8A5A12), true),
               ]),
             ),
             const SizedBox(height: 22),
-            const Text('Keterangan Laporan Saya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 8),
+            sectionHeading(context, 'Keterangan Laporan Saya'),
+            const SizedBox(height: 10),
             FilterChips(const ['Laporan Saya', 'Klaim Saya'], tab, (v) => setState(() => tab = v)),
             const SizedBox(height: 12),
             if (tab == 'Laporan Saya') ...[
               if (mine.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('Belum ada laporan.', style: TextStyle(color: mutedC(context))))),
-              for (final r in mine) ReportTile(r, () => openReport(context, r)),
+              for (final r in mine) ...[
+                ReportTile(r, () => openReport(context, r)),
+              ],
             ] else ...[
               if (myClaims.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('Belum ada klaim.', style: TextStyle(color: mutedC(context))))),
               for (final c in myClaims)
@@ -520,9 +239,15 @@ class ReportFormScreen extends StatefulWidget {
 
 class _ReportFormScreenState extends State<ReportFormScreen> {
   final _form = GlobalKey<FormState>();
-  final nameC = TextEditingController(), descC = TextEditingController(), secretC = TextEditingController(), detailC = TextEditingController(), catC = TextEditingController(), dateC = TextEditingController();
-  String? category, area, pos, photo;
+  final nameC = TextEditingController(), descC = TextEditingController(), catC = TextEditingController(), dateC = TextEditingController();
+  String? category, pos, photo;
   DateTime date = DateTime.now();
+  final jenisC = TextEditingController(), warnaC = TextEditingController(), ciriC = TextEditingController();
+  bool _aiLoading = false;
+  bool _aiDetected = false;
+  bool _aiFailed = false; // kalau AI gagal, form tetap muncul agar bisa diisi manual
+
+  static const String _geminiKey = geminiApiKey;
 
   @override
   void initState() {
@@ -533,13 +258,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       category = e.category;
       catC.text = e.categoryCustom;
       descC.text = e.description;
-      secretC.text = e.secret;
-      area = e.area;
-      detailC.text = e.areaDetail;
+      _parseDesc(e.description);
       pos = e.pos;
       photo = e.photo;
       date = e.date;
       dateC.text = fmtDate(date);
+      _aiDetected = true;
       return;
     }
     dateC.text = fmtDate(date);
@@ -548,34 +272,227 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       nameC.text = p.name;
       category = p.category;
       catC.text = p.categoryCustom;
+      _aiDetected = true;
     }
   }
 
-  Future<void> _pickDate() async {
-    final d = await showDatePicker(context: context, initialDate: date, firstDate: DateTime(2024), lastDate: DateTime.now());
-    if (d != null) {
-      setState(() {
-        date = d;
-        dateC.text = fmtDate(d);
+  /// Memecah deskripsi tersimpan ("Jenis: .., Warna: .., Ciri-ciri: ..") ke 3 kotak.
+  void _parseDesc(String d) {
+    final m = RegExp(
+      r'^(?:Jenis:\s*(.*?))?(?:,?\s*Warna:\s*(.*?))?(?:,?\s*Ciri-ciri:\s*(.*))?$',
+      dotAll: true,
+    ).firstMatch(d.trim());
+    if (m == null) {
+      ciriC.text = d; // format lama: taruh semua di Ciri-ciri
+      return;
+    }
+    jenisC.text = (m.group(1) ?? '').trim();
+    warnaC.text = (m.group(2) ?? '').trim();
+    ciriC.text = (m.group(3) ?? '').trim();
+  }
+
+  /// Menggabungkan 3 kotak menjadi satu teks deskripsi untuk disimpan di laporan.
+  String _composeDesc() {
+    final parts = <String>[];
+    if (jenisC.text.trim().isNotEmpty) parts.add('Jenis: ${jenisC.text.trim()}');
+    if (warnaC.text.trim().isNotEmpty) parts.add('Warna: ${warnaC.text.trim()}');
+    if (ciriC.text.trim().isNotEmpty) parts.add('Ciri-ciri: ${ciriC.text.trim()}');
+    return parts.join(', ');
+  }
+
+  String _detectMime(Uint8List b) {
+    if (b.length > 3 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E) return 'image/png';
+    if (b.length > 11 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[8] == 0x57) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  void _aiSnack(String msg, {Color color = Colors.orange}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 4)),
+    );
+  }
+
+  Future<void> _analyzePhotoWithAi(String photoPath) async {
+    if (photoPath.isEmpty) return;
+    setState(() => _aiLoading = true);
+
+    try {
+      Uint8List imageBytes;
+      if (photoPath.startsWith('data:image')) {
+        imageBytes = base64Decode(photoPath.split(',').last);
+      } else if (!kIsWeb) {
+        final file = File(photoPath);
+        if (!file.existsSync()) return;
+        imageBytes = await file.readAsBytes();
+      } else {
+        return;
+      }
+
+      final requestBody = jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {
+                'text': 'Analisis foto barang ini. Kembalikan HANYA JSON murni tanpa markdown/backticks, dengan tepat 5 key:\n'
+                    '{\n'
+                    '  "nama_barang": "nama spesifik barang (singkat)",\n'
+                    '  "kategori": "salah satu dari: Dompet, Elektronik, Tas, Kunci, Pakaian, Dokumen/Kartu, Alat Tulis, Lainnya",\n'
+                    '  "jenis_barang": "jenis/tipe barang, contoh: Boneka plushie, Dompet kulit, Smartphone",\n'
+                    '  "warna": "warna dominan barang",\n'
+                    '  "ciri_ciri": "ciri khas yang terlihat: motif, merek, goresan, stiker, kondisi, aksesoris. Isi - jika tidak ada"\n'
+                    '}'
+              },
+              {
+                'inline_data': {
+                  'mime_type': _detectMime(imageBytes),
+                  'data': base64Encode(imageBytes),
+                }
+              }
+            ]
+          }
+        ],
+        'generationConfig': {'responseMimeType': 'application/json'},
       });
+
+      // Model 2.5 sudah dimatikan Google (404). Urutan: utama -> cadangan.
+      const models = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+      int lastStatus = 0;
+
+      for (final modelName in models) {
+        final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent');
+
+        for (var attempt = 0; attempt < 2; attempt++) {
+          try {
+            final res = await http
+                .post(
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': _geminiKey,
+              },
+              body: requestBody,
+            )
+                .timeout(const Duration(seconds: 25));
+
+            lastStatus = res.statusCode;
+            debugPrint('[AI][$modelName] status=${res.statusCode} body=${res.body}');
+
+            if (res.statusCode == 200) {
+              final resJson = jsonDecode(res.body) as Map<String, dynamic>;
+              final candidates = resJson['candidates'] as List?;
+              final content = (candidates != null && candidates.isNotEmpty)
+                  ? (candidates[0] as Map<String, dynamic>)['content'] as Map<String, dynamic>?
+                  : null;
+              final parts = content?['parts'] as List?;
+              final text = (parts != null && parts.isNotEmpty) ? ((parts[0]['text'] as String?) ?? '') : '';
+
+              final start = text.indexOf('{');
+              final end = text.lastIndexOf('}');
+              if (start == -1 || end <= start) break;
+
+              final data = jsonDecode(text.substring(start, end + 1)) as Map<String, dynamic>;
+              final aiName = (data['nama_barang'] as String?)?.trim() ?? '';
+              final aiCategory = (data['kategori'] as String?)?.trim() ?? '';
+              final aiJenis = (data['jenis_barang'] as String?)?.trim() ?? '';
+              final aiWarna = (data['warna'] as String?)?.trim() ?? '';
+              var aiCiri = (data['ciri_ciri'] as String?)?.trim() ?? '';
+              if (aiCiri == '-') aiCiri = '';
+
+              if (!mounted) return;
+              setState(() {
+                if (aiName.isNotEmpty) nameC.text = aiName;
+                jenisC.text = aiJenis;
+                warnaC.text = aiWarna;
+                ciriC.text = aiCiri;
+                descC.text = _composeDesc();
+                if (aiCategory.isNotEmpty) {
+                  category = categories.firstWhere(
+                        (c) =>
+                    c.toLowerCase() == aiCategory.toLowerCase() ||
+                        c.toLowerCase().contains(aiCategory.toLowerCase()) ||
+                        aiCategory.toLowerCase().contains(c.toLowerCase()),
+                    orElse: () => 'Lainnya',
+                  );
+                }
+                _aiDetected = true;
+              });
+              _aiSnack('✨ AI berhasil mengenali barang dari foto!', color: kEmeraldSolid);
+              return;
+            }
+
+            if (res.statusCode == 429 || res.statusCode == 503 || res.statusCode == 500) {
+              await Future.delayed(const Duration(seconds: 2));
+              continue;
+            }
+
+            break;
+          } on TimeoutException {
+            lastStatus = 0;
+            break;
+          } on SocketException {
+            lastStatus = -1;
+            break;
+          } catch (e) {
+            lastStatus = 0;
+            debugPrint('[AI][$modelName] error: $e');
+            break;
+          }
+        }
+
+        if (lastStatus == 400 || lastStatus == 401 || lastStatus == 403 || lastStatus == -1) break;
+      }
+
+      if (lastStatus == 400 || lastStatus == 401 || lastStatus == 403) {
+        _aiSnack('API key AI tidak valid / belum diizinkan (kode $lastStatus).', color: Colors.red);
+      } else if (lastStatus == -1) {
+        _aiSnack('Tidak ada koneksi internet. Periksa jaringan lalu tekan Generate Ulang AI.');
+      } else if (lastStatus == 404) {
+        _aiSnack('Model AI tidak ditemukan (404). Nama model perlu diperbarui di aplikasi.', color: Colors.red);
+      } else {
+        _aiSnack('Server AI sedang sibuk ($lastStatus), silakan tekan Generate Ulang AI.');
+      }
+    } catch (e) {
+      debugPrint('AI Analysis Error: $e');
+      _aiSnack('Server AI sedang sibuk, silakan tekan Generate Ulang AI.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _aiLoading = false;
+          if (!_aiDetected) _aiFailed = true;
+        });
+      }
     }
   }
 
   Future<void> _submit() async {
+    if (photo == null || photo!.isEmpty) {
+      _aiSnack('Unggah foto barang terlebih dahulu.');
+      return;
+    }
     if (!_form.currentState!.validate()) return;
+
+    final finalName = nameC.text.trim().isEmpty
+        ? (widget.found ? 'Barang Ditemukan' : 'Barang Hilang')
+        : nameC.text.trim();
+    final finalCategory = category ?? 'Lainnya';
+    descC.text = _composeDesc();
+    final finalDesc = descC.text.trim().isEmpty
+        ? 'Dilaporkan melalui foto barang'
+        : descC.text.trim();
     final e = widget.editing;
 
     if (e != null) {
       final updated = Report(
         id: e.id,
         type: e.type,
-        name: nameC.text.trim(),
-        category: category!,
+        name: finalName,
+        category: finalCategory,
         categoryCustom: catC.text.trim(),
-        description: descC.text.trim(),
-        secret: secretC.text.trim(),
-        area: area!,
-        areaDetail: detailC.text.trim(),
+        description: finalDesc,
+        secret: '',
+        area: pos!,
+        areaDetail: '',
         pos: pos!,
         owner: e.owner,
         date: date,
@@ -585,7 +502,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       await store.updateReport(updated);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Perubahan laporan berhasil disimpan!'), backgroundColor: kGreen),
+        const SnackBar(content: Text('Perubahan laporan berhasil disimpan!'), backgroundColor: kEmeraldSolid),
       );
       Navigator.pop(context);
       return;
@@ -594,13 +511,13 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     final r = Report(
       id: store.nextReportId(),
       type: widget.found ? ReportType.ditemukan : ReportType.hilang,
-      name: nameC.text.trim(),
-      category: category!,
+      name: finalName,
+      category: finalCategory,
       categoryCustom: catC.text.trim(),
-      description: descC.text.trim(),
-      secret: secretC.text.trim(),
-      area: area!,
-      areaDetail: detailC.text.trim(),
+      description: finalDesc,
+      secret: '',
+      area: pos!,
+      areaDetail: '',
       pos: pos!,
       owner: store.email,
       date: date,
@@ -608,22 +525,27 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       status: stWait,
     );
     store.add(r);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SubmittedScreen(
-          title: 'Laporan Terkirim',
-          message: 'Laporan "${r.name}" (${r.id}) menunggu verifikasi satpam di ${r.pos}. Tekan Lanjut untuk memindai QR Barcode Pos Satpam di pos. Setelah berhasil dipindai, laporan tampil di Beranda dan kamu mendapat notifikasi.',
-          next: ScanGuardQrScreen(kind: 'R', targetId: r.id),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: kEmeraldSolid,
+        duration: const Duration(seconds: 5),
+        content: Text(
+          'Laporan "${r.name}" tersimpan! Kamu bisa scan QR di ${r.pos} kapan saja lewat tab Laporan Saya.',
+          style: const TextStyle(color: Colors.white),
         ),
       ),
     );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final found = widget.editing != null ? (widget.editing!.type == ReportType.ditemukan) : widget.found;
     final isEdit = widget.editing != null;
+    final dark = isDark(context);
+    final neutralAccent = dark ? const Color(0xFFCBD5E1) : kSlateSubLabel;
 
     return Scaffold(
       appBar: AppBar(
@@ -634,33 +556,100 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       ),
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          AppField('Nama Barang', 'Contoh: Dompet hitam', controller: nameC, validator: requiredField),
-          AppDropdown('Kategori Barang', 'Pilih kategori', categories, category, (v) => setState(() => category = v), isRequired: true),
-          if (category == 'Lainnya') AppField('Tulis Kategori Barang', 'Contoh: Payung, botol minum, jaket', controller: catC, validator: requiredField),
-          AppField('Deskripsi Umum (tampil ke publik)', 'Warna, merek, ukuran...', controller: descC, maxLines: 3, validator: requiredField),
-          AppField(
-            'Detail Rahasia',
-            found ? 'Contoh: ada goresan di bagian dalam, gantungan bertuliskan nama' : 'Contoh: ada stiker coklat di bawah botol',
-            controller: secretC,
-            maxLines: 2,
-            icon: Icons.lock_outline,
-            helper: found
-                ? 'Ciri tersembunyi yang kamu lihat. TIDAK tampil ke publik, hanya kamu dan satpam. Dipakai satpam mencocokkan dengan jawaban pengklaim.'
-                : 'Ciri yang hanya pemilik tahu. TIDAK tampil ke publik, hanya kamu dan satpam. Mencegah orang sembarang mengklaim barangmu.',
-            validator: requiredField,
-          ),
-          AppDropdown(found ? 'Lokasi Penemuan' : 'Lokasi Kehilangan', 'Pilih lokasi', areas, area, (v) => setState(() => area = v), isRequired: true),
-          AppField('Detail Lokasi', 'Ketik manual, contoh: Gedung A3 lantai 2, dekat tangga', controller: detailC, validator: requiredField),
-          AppField(found ? 'Tanggal Ditemukan' : 'Tanggal Hilang', 'Pilih tanggal', controller: dateC, icon: Icons.calendar_today_outlined, readOnly: true, onTap: _pickDate),
-          AppDropdown('Pos Satpam', 'Pilih pos satpam', posList, pos, (v) => setState(() => pos = v),
-              isRequired: true, helper: found ? 'Pos tempat barang diserahkan dan laporan diverifikasi.' : 'Pos tempat laporan diverifikasi dan tempat kamu mengecek barang temuan.'),
-          const Text('Foto Barang', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(height: 6),
-          PhotoBox(path: photo, onPicked: (p) => setState(() => photo = p)),
-          const SizedBox(height: 20),
-          PrimaryButton(isEdit ? 'Simpan Perubahan' : 'Kirim Laporan', _submit),
-        ]),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            sectionHeading(context, 'Foto Barang'),
+            const SizedBox(height: 8),
+            PhotoBox(
+              path: photo,
+              onPicked: (p) {
+                setState(() {
+                  photo = p;
+                  _aiDetected = false;
+                  _aiFailed = false;
+                });
+                if (p != null && p.isNotEmpty) {
+                  _analyzePhotoWithAi(p);
+                }
+              },
+            ),
+            if (_aiLoading) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kEmeraldSolid.withValues(alpha: dark ? 0.18 : 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kEmeraldSolid.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2, color: kEmeraldSolid),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'AI sedang mengenali barang...',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kEmeraldSolid),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (photo != null && photo!.isNotEmpty && !_aiLoading) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _analyzePhotoWithAi(photo!),
+                  icon: Icon(Icons.auto_awesome_rounded, size: 16, color: neutralAccent),
+                  label: Text(
+                    '✨ Generate Ulang AI',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: neutralAccent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            // Form lain & hasil AI baru muncul setelah AI selesai (atau gagal -> isi manual)
+            if ((_aiDetected || _aiFailed) && !_aiLoading) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome_rounded, size: 18, color: kEmeraldSolid),
+                  const SizedBox(width: 6),
+                  Text(
+                    _aiDetected ? 'Hasil Analisis AI' : 'Detail Barang',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _aiDetected
+                    ? 'Periksa dan ubah jika ada yang kurang tepat.'
+                    : 'AI belum berhasil, silakan isi detail barang secara manual.',
+                style: TextStyle(fontSize: 12, color: mutedC(context)),
+              ),
+              const SizedBox(height: 10),
+              AppField('Nama Barang', 'Contoh: Boneka Harimau Kuning', controller: nameC, icon: Icons.inventory_2_outlined),
+              AppField('Jenis Barang', 'Contoh: Boneka plushie', controller: jenisC, icon: Icons.category_outlined),
+              AppField('Warna', 'Contoh: Kuning dan putih', controller: warnaC, icon: Icons.palette_outlined),
+              AppField('Ciri-ciri', 'Contoh: ada garis hitam, pipi merah muda', controller: ciriC, maxLines: 3, icon: Icons.fingerprint),
+              AppDropdown('Kategori', 'Pilih kategori', categories, categories.contains(category) ? category : null, (v) => setState(() => category = v)),
+              const SizedBox(height: 16),
+              AppDropdown('Pos Satpam', 'Pilih pos satpam', posList, pos, (v) => setState(() => pos = v), isRequired: true),
+              const SizedBox(height: 20),
+              PrimaryButton(isEdit ? 'Simpan Perubahan' : 'Kirim Laporan', _submit),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -679,7 +668,7 @@ class SubmittedScreen extends StatelessWidget {
         padding: const EdgeInsets.all(28),
         child: Column(children: [
           const Spacer(),
-          const CircleAvatar(radius: 44, backgroundColor: kGreen, child: Icon(Icons.check, size: 52, color: Colors.white)),
+          const CircleAvatar(radius: 44, backgroundColor: kEmeraldSolid, child: Icon(Icons.check, size: 52, color: Colors.white)),
           const SizedBox(height: 20),
           Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -692,7 +681,7 @@ class SubmittedScreen extends StatelessWidget {
   );
 }
 
-/// Layar bagi warga (pelapor / pengklaim) untuk memindai QR Barcode Pos Satpam.
+/// Layar bagi mahasiswa (pelapor / pengklaim) untuk memindai QR Barcode Pos Satpam.
 class ScanGuardQrScreen extends StatefulWidget {
   final String kind;
   final String targetId;
@@ -783,8 +772,9 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
     final dark = isDark(context);
     final bgCol = dark ? kDeep : softC(context);
     final appBg = dark ? kDeep : cardC(context);
-    final textCol = dark ? Colors.white : kDeep;
+    final textCol = dark ? Colors.white : kSlateHeading;
     final subTextCol = dark ? Colors.white70 : mutedC(context);
+    final borderCol = dark ? const Color(0xFFCBD5E1) : kSlateSubLabel;
 
     return Scaffold(
       backgroundColor: bgCol,
@@ -802,7 +792,7 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              const CircleAvatar(radius: 44, backgroundColor: kGreen, child: Icon(Icons.verified, size: 50, color: Colors.white)),
+              const CircleAvatar(radius: 44, backgroundColor: kEmeraldSolid, child: Icon(Icons.verified, size: 50, color: Colors.white)),
               const SizedBox(height: 20),
               Text('Verifikasi Berhasil!', textAlign: TextAlign.center, style: TextStyle(color: textCol, fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
@@ -830,7 +820,7 @@ class _ScanGuardQrScreenState extends State<ScanGuardQrScreen> {
                 margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: dark ? Colors.lightGreenAccent : kGreen, width: 3),
+                  border: Border.all(color: borderCol, width: 2.5),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: MobileScanner(
@@ -869,21 +859,20 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   static const days = ['Semua', 'Hari ini', '7 hari terakhir', '30 hari terakhir'];
   String q = '', day = 'Semua';
-  String? cat, loc, type, pos;
+  String? cat, type, pos;
 
-  int get active => [day != 'Semua', cat != null, loc != null, type != null, pos != null].where((e) => e).length;
+  int get active => [day != 'Semua', cat != null, type != null, pos != null].where((e) => e).length;
 
   bool _match(Report r) {
     if (!r.isPublic) return false;
     final s = q.toLowerCase().trim();
-    if (s.isNotEmpty && !'${r.name} ${r.categoryLabel} ${r.area}'.toLowerCase().contains(s)) return false;
+    if (s.isNotEmpty && !'${r.name} ${r.categoryLabel} ${r.pos}'.toLowerCase().contains(s)) return false;
     final now = DateTime.now();
     final age = DateTime(now.year, now.month, now.day).difference(DateTime(r.date.year, r.date.month, r.date.day)).inDays;
     if (day == 'Hari ini' && age != 0) return false;
     if (day == '7 hari terakhir' && age > 7) return false;
     if (day == '30 hari terakhir' && age > 30) return false;
     if (cat != null && r.category != cat) return false;
-    if (loc != null && r.area != loc) return false;
     if (type != null && r.typeLabel != type) return false;
     if (pos != null && r.pos != pos) return false;
     return true;
@@ -891,7 +880,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _openFilter() {
     var d = day;
-    String? c = cat, l = loc, t = type, p = pos;
+    String? c = cat, t = type, p = pos;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -901,18 +890,17 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Filter Pencarian', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              sectionHeading(ctx, 'Filter Pencarian'),
               const SizedBox(height: 14),
               AppDropdown('Hari', 'Semua', days, d, (v) => setS(() => d = v!)),
               AppDropdown('Kategori Barang (opsional)', 'Semua kategori', categories, c, (v) => setS(() => c = v)),
-              AppDropdown('Lokasi (opsional)', 'Semua lokasi', areas, l, (v) => setS(() => l = v)),
               AppDropdown('Pos Satpam (opsional)', 'Semua pos', posList, p, (v) => setS(() => p = v)),
               AppDropdown('Jenis Laporan (opsional)', 'Hilang & Ditemukan', const ['Hilang', 'Ditemukan'], t, (v) => setS(() => t = v)),
               Row(children: [
                 Expanded(
                   child: PrimaryButton('Reset', () => setS(() {
                     d = 'Semua';
-                    c = l = t = p = null;
+                    c = t = p = null;
                   }), outlined: true),
                 ),
                 const SizedBox(width: 10),
@@ -921,7 +909,6 @@ class _SearchScreenState extends State<SearchScreen> {
                     setState(() {
                       day = d;
                       cat = c;
-                      loc = l;
                       type = t;
                       pos = p;
                     });
@@ -954,14 +941,20 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: TextField(
                     onChanged: (v) => setState(() => q = v),
                     decoration: InputDecoration(
-                      hintText: 'Cari nama barang, kategori, atau lokasi',
+                      hintText: 'Cari nama barang, kategori, atau pos satpam',
                       hintStyle: const TextStyle(fontSize: 13),
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
-                      fillColor: cardC(context),
+                      fillColor: isDark(context) ? const Color(0xFF13291F) : Colors.white,
                       isDense: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderC(context))),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+                      ),
                     ),
                   ),
                 ),
@@ -969,7 +962,11 @@ class _SearchScreenState extends State<SearchScreen> {
                 Badge(
                   isLabelVisible: active > 0,
                   label: Text('$active'),
-                  child: IconButton.filled(style: IconButton.styleFrom(backgroundColor: kGreen), onPressed: _openFilter, icon: const Icon(Icons.tune)),
+                  child: IconButton.filled(
+                    style: IconButton.styleFrom(backgroundColor: kEmeraldSolid),
+                    onPressed: _openFilter,
+                    icon: const Icon(Icons.tune),
+                  ),
                 ),
               ]),
               if (active > 0)
@@ -980,12 +977,13 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Wrap(spacing: 6, children: [
                       if (day != 'Semua') _chip(day, () => setState(() => day = 'Semua')),
                       if (cat != null) _chip(cat!, () => setState(() => cat = null)),
-                      if (loc != null) _chip(loc!, () => setState(() => loc = null)),
                       if (pos != null) _chip(pos!, () => setState(() => pos = null)),
                       if (type != null) _chip(type!, () => setState(() => type = null)),
                     ]),
                   ),
                 ),
+              const SizedBox(height: 10),
+              sectionHeading(context, 'Hasil Pencarian', trailing: '${list.length} barang'),
             ]),
           ),
           Expanded(
@@ -1015,10 +1013,12 @@ class PublicDetailScreen extends StatelessWidget {
     body: ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        final dark = isDark(context);
+        final neutralAccent = dark ? const Color(0xFFCBD5E1) : kSlateSubLabel;
         final found = r.type == ReportType.ditemukan;
         final mine = store.pendingClaimOf(r.id, store.email);
         return ListView(padding: const EdgeInsets.all(16), children: [
-          ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(r))),
+          ClipRRect(borderRadius: BorderRadius.circular(18), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(r))),
           const SizedBox(height: 14),
           Text(r.name, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
@@ -1026,19 +1026,22 @@ class PublicDetailScreen extends StatelessWidget {
           const Divider(height: 26),
           InfoRow(Icons.category_outlined, 'Kategori', r.categoryLabel),
           InfoRow(Icons.description_outlined, 'Deskripsi', r.description),
-          InfoRow(Icons.place_outlined, 'Lokasi', r.area),
           InfoRow(Icons.calendar_today_outlined, 'Tanggal', fmtDate(r.date)),
           InfoRow(Icons.local_police_outlined, found ? 'Ambil / cek di' : 'Pos satpam', r.pos),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: softC(context), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF13291F) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+            ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.lock_outline, size: 18, color: kGreen),
+              Icon(Icons.lock_outline, size: 18, color: neutralAccent),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Detail rahasia, lokasi rinci, dan data pelapor disembunyikan. Hanya pelapor dan satpam yang dapat melihatnya.',
+                  'Data pelapor disembunyikan. Hanya pelapor dan satpam yang dapat melihatnya.',
                   style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4),
                 ),
               ),
@@ -1086,16 +1089,19 @@ class _ClaimScreenState extends State<ClaimScreen> {
       date: DateTime.now(),
     );
     store.addClaim(c);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SubmittedScreen(
-          title: 'Klaim Terkirim',
-          message: 'Tekan Lanjut untuk memindai QR Barcode Pos Satpam di ${widget.r.pos}. Satpam akan mencocokkan jawabanmu dengan detail rahasia pada laporan.',
-          next: ScanGuardQrScreen(kind: 'C', targetId: c.id),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: kEmeraldSolid,
+        duration: const Duration(seconds: 5),
+        content: Text(
+          'Klaim terkirim! Kamu bisa scan QR di ${widget.r.pos} kapan saja lewat tab Klaim Saya.',
+          style: const TextStyle(color: Colors.white),
         ),
       ),
     );
+    Navigator.pop(context);
   }
 
   @override
@@ -1172,28 +1178,27 @@ class FullDetailScreen extends StatelessWidget {
       final current = store.find(r.id) ?? r;
       final isOwner = current.owner == store.email && !store.guard;
       final claims = store.claimsOf(current.id);
+      final dark = isDark(context);
+      final neutralAccent = dark ? const Color(0xFFCBD5E1) : kSlateSubLabel;
 
       return Scaffold(
         appBar: AppBar(title: const Text('Detail Laporan', style: TextStyle(fontSize: 16))),
         body: ListView(padding: const EdgeInsets.all(16), children: [
-          ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(current))),
+          ClipRRect(borderRadius: BorderRadius.circular(18), child: AspectRatio(aspectRatio: 4 / 3, child: ReportPhoto(current))),
           const SizedBox(height: 14),
           Text(current.name, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Wrap(spacing: 6, children: [StatusChip(current.typeLabel), StatusChip(current.status)]),
           const Divider(height: 26),
-          SecretBox('DETAIL RAHASIA (hanya pelapor & satpam)', current.secret),
           InfoRow(Icons.tag, 'Kode Laporan', current.id),
           InfoRow(Icons.category_outlined, 'Kategori', current.categoryLabel),
           InfoRow(Icons.description_outlined, 'Deskripsi', current.description),
-          InfoRow(Icons.place_outlined, 'Lokasi', current.area),
-          InfoRow(Icons.pin_drop_outlined, 'Detail Lokasi', current.areaDetail),
           InfoRow(Icons.calendar_today_outlined, 'Tanggal', fmtDate(current.date)),
           InfoRow(Icons.local_police_outlined, 'Pos Satpam', current.pos),
           InfoRow(Icons.person_outline, 'Pelapor', current.owner),
           if (claims.isNotEmpty) ...[
             const SizedBox(height: 10),
-            const Text('Klaim pada barang ini', style: TextStyle(fontWeight: FontWeight.bold)),
+            sectionHeading(context, 'Klaim pada barang ini'),
             const SizedBox(height: 8),
             for (final c in claims)
               ClaimTile(c, () {
@@ -1213,7 +1218,7 @@ class FullDetailScreen extends StatelessWidget {
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: kGreen, width: 1.4),
+                      side: BorderSide(color: neutralAccent, width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     onPressed: () => Navigator.push(
@@ -1225,8 +1230,11 @@ class FullDetailScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    icon: const Icon(Icons.edit_rounded, size: 18, color: kGreen),
-                    label: const Text('Edit Laporan', style: TextStyle(fontWeight: FontWeight.w700, color: kGreen)),
+                    icon: Icon(Icons.edit_rounded, size: 18, color: neutralAccent),
+                    label: Text(
+                      'Edit Laporan',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: neutralAccent),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1234,7 +1242,7 @@ class FullDetailScreen extends StatelessWidget {
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFE11D48), width: 1.4),
+                      side: const BorderSide(color: Color(0xFFE11D48), width: 1.3),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     onPressed: () => _confirmDelete(context, current),
@@ -1290,8 +1298,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   (IconData, Color) _style(String t) => switch (t) {
     'match' => (Icons.auto_awesome, Colors.amber.shade800),
-    'verified' => (Icons.verified, kGreen),
-    'claim' => (Icons.how_to_reg, Colors.blue),
+    'verified' => (Icons.verified, kEmeraldSolid),
+    'claim' => (Icons.how_to_reg, kSlateSubLabel),
     _ => (Icons.info_outline, Colors.blueGrey),
   };
 
@@ -1300,6 +1308,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     body: ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        final dark = isDark(context);
         final all = store.notifs.where((n) => n.owner == store.email).toList();
         final list = all.where((n) => f == 'Semua' || !n.read).toList();
         return ListView(padding: const EdgeInsets.only(bottom: 120), children: [
@@ -1314,6 +1323,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              sectionHeading(context, 'Daftar Notifikasi', trailing: '${list.length} item'),
+              const SizedBox(height: 10),
               FilterChips(const ['Semua', 'Belum dibaca'], f, (v) => setState(() => f = v)),
               const SizedBox(height: 12),
               if (list.isEmpty) Padding(padding: const EdgeInsets.all(32), child: Center(child: Text('Belum ada notifikasi', style: TextStyle(color: mutedC(context))))),
@@ -1321,14 +1332,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
-                    color: n.read ? cardC(context) : softC(context),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderC(context)),
+                    color: n.read
+                        ? (dark ? const Color(0xFF13291F) : Colors.white)
+                        : (dark ? const Color(0xFF183628) : const Color(0xFFF0FDF4)),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
                   ),
                   child: Material(
                     type: MaterialType.transparency,
                     child: ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       leading: CircleAvatar(
                         backgroundColor: _style(n.type).$2.withValues(alpha: .15),
                         child: Icon(_style(n.type).$1, color: _style(n.type).$2),
@@ -1372,46 +1385,68 @@ class MatchScreen extends StatelessWidget {
     appBar: AppBar(title: const Text('Kecocokan Barang', style: TextStyle(fontSize: 16))),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: softC(context), borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark(context) ? const Color(0xFF13291F) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+        ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(Icons.auto_awesome, color: Colors.amber.shade800),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Dicocokkan otomatis dari nama, kategori, deskripsi, lokasi, dan tanggal. Pemilik asli tetap diverifikasi satpam lewat detail rahasia.',
+              'Dicocokkan otomatis dari nama, kategori, deskripsi, pos satpam, dan tanggal. Kepemilikan tetap diverifikasi satpam.',
               style: TextStyle(fontSize: 12, color: mutedC(context), height: 1.4),
             ),
           ),
         ]),
       ),
       const SizedBox(height: 14),
+      sectionHeading(context, 'Barang Paling Mirip'),
+      const SizedBox(height: 10),
       for (var i = 0; i < n.matchIds.length; i++) ...[
         Builder(builder: (context) {
           final r = store.find(n.matchIds[i]);
           if (r == null) return const SizedBox();
           final s = i < n.scores.length ? n.scores[i] : 0.0;
           return InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             onTap: () => openReport(context, r),
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: cardC(context), borderRadius: BorderRadius.circular(14), border: Border.all(color: borderC(context))),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark(context) ? const Color(0xFF13291F) : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+              ),
               child: Row(children: [
-                ClipRRect(borderRadius: BorderRadius.circular(10), child: SizedBox(width: 76, height: 76, child: ReportPhoto(r))),
+                ClipRRect(borderRadius: BorderRadius.circular(12), child: SizedBox(width: 76, height: 76, child: ReportPhoto(r))),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text('${r.area}\n${r.pos}', style: TextStyle(fontSize: 11, color: mutedC(context))),
+                    Text(r.pos, style: TextStyle(fontSize: 11, color: mutedC(context))),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(value: s, minHeight: 8, color: kGreen, backgroundColor: borderC(context)),
+                      child: LinearProgressIndicator(
+                        value: s,
+                        minHeight: 8,
+                        color: kEmeraldSolid,
+                        backgroundColor: isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text('Kecocokan ${(s * 100).round()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
+                    Text(
+                      'Kecocokan ${(s * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDark(context) ? const Color(0xFFCBD5E1) : kSlateSubLabel,
+                      ),
+                    ),
                   ]),
                 ),
               ]),

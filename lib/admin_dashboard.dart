@@ -167,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '📍 ${r.area}${r.areaDetail.isNotEmpty ? " (${r.areaDetail})" : ""}',
+                '📍 ${r.pos}',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen),
               ),
               const SizedBox(height: 10),
@@ -316,60 +316,67 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
-          child: Scaffold(
-            backgroundColor: bgColor,
-            body: Row(
-              children: [
-                if (isDesktop) _buildLeftSidebar(notifs.length, alerts.length),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildTopHeader(dark, cardColor, inputFillColor, textColor, mutedColor, borderColor),
-                      if (!isDesktop) _buildMobileNavBar(notifs.length, alerts.length, cardColor, textColor),
-                      Expanded(
-                        child: ListView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          children: [
-                            FadeSlideIn(
-                              index: 0,
-                              child: _buildKpiRow(dark, reports, alerts.length, cardColor, textColor, mutedColor, borderColor),
-                            ),
-                            const SizedBox(height: 24),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 260),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              transitionBuilder: (child, anim) => FadeTransition(
-                                opacity: anim,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(begin: const Offset(0, 0.02), end: Offset.zero).animate(anim),
-                                  child: child,
+          child: PopScope(
+            canPop: _selectedView == 0,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              if (_selectedView != 0) setState(() => _selectedView = 0);
+            },
+            child: Scaffold(
+              backgroundColor: bgColor,
+              body: Row(
+                children: [
+                  if (isDesktop) _buildLeftSidebar(notifs.length, alerts.length),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildTopHeader(dark, cardColor, inputFillColor, textColor, mutedColor, borderColor),
+                        if (!isDesktop) _buildMobileNavBar(notifs.length, alerts.length, cardColor, textColor),
+                        Expanded(
+                          child: ListView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.all(24),
+                            children: [
+                              FadeSlideIn(
+                                index: 0,
+                                child: _buildKpiRow(dark, reports, alerts.length, cardColor, textColor, mutedColor, borderColor),
+                              ),
+                              const SizedBox(height: 24),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 260),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, anim) => FadeTransition(
+                                  opacity: anim,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(begin: const Offset(0, 0.02), end: Offset.zero).animate(anim),
+                                    child: child,
+                                  ),
+                                ),
+                                child: KeyedSubtree(
+                                  key: ValueKey(_selectedView),
+                                  child: _buildActiveWorkspace(
+                                    dark,
+                                    reports,
+                                    claims,
+                                    notifs,
+                                    alerts,
+                                    cardColor,
+                                    inputFillColor,
+                                    textColor,
+                                    mutedColor,
+                                    borderColor,
+                                  ),
                                 ),
                               ),
-                              child: KeyedSubtree(
-                                key: ValueKey(_selectedView),
-                                child: _buildActiveWorkspace(
-                                  dark,
-                                  reports,
-                                  claims,
-                                  notifs,
-                                  alerts,
-                                  cardColor,
-                                  inputFillColor,
-                                  textColor,
-                                  mutedColor,
-                                  borderColor,
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -1463,8 +1470,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     final areaCounts = <String, (int total, int done)>{};
     for (final r in reports) {
-      final prev = areaCounts[r.area] ?? (0, 0);
-      areaCounts[r.area] = (prev.$1 + 1, prev.$2 + (r.status == stDone ? 1 : 0));
+      final prev = areaCounts[r.pos] ?? (0, 0);
+      areaCounts[r.pos] = (prev.$1 + 1, prev.$2 + (r.status == stDone ? 1 : 0));
     }
     final sortedAreas = areaCounts.entries.toList()..sort((a, b) => b.value.$1.compareTo(a.value.$1));
 
@@ -1485,7 +1492,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Text('Rekapitulasi Area Rawan Kehilangan & Evaluasi CCTV',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor)),
               const SizedBox(height: 3),
-              Text('Distribusi laporan masuk vs rasio pengembalian barang per lokasi kampus UNESA',
+              Text('Distribusi laporan masuk vs rasio pengembalian barang per Pos Satpam',
                   style: TextStyle(fontSize: 12, color: mutedColor)),
               const SizedBox(height: 16),
               if (sortedAreas.isEmpty)

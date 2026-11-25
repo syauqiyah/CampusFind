@@ -49,6 +49,5 @@ app.*.map.json
 
 /android/build/
 
-/android/build/
-
-/android/build/
+# Local API keys (jangan di-push ke GitHub)
+lib/api_keys.dart

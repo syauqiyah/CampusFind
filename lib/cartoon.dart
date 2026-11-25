@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'core.dart';
+import 'unesa_logo.dart';
 import 'widgets.dart';
 
 // ------------------------------------------------------------------ deteksi waktu & lintasan matahari/bulan (Timur -> Barat)
@@ -143,6 +144,7 @@ class CampusPainter extends CustomPainter {
 class CartoonHeader extends StatefulWidget {
   final double height, bx, bs, groundY, sunX;
   final Widget? child;
+  final bool showBuilding; // false = langit, awan, rumput & pohon saja (tanpa gedung)
 
   const CartoonHeader({
     super.key,
@@ -151,6 +153,7 @@ class CartoonHeader extends StatefulWidget {
     this.bs = .52,
     this.groundY = .80,
     this.sunX = .82,
+    this.showBuilding = true,
     this.child,
   });
 
@@ -249,6 +252,7 @@ class _CartoonHeaderState extends State<CartoonHeader>
                   atmosphere: _TimeAtmosphere.fromNow(),
                   sunXRatio: widget.sunX,
                   treeCrowns: _treeCrowns,
+                  showBuilding: widget.showBuilding,
                 ),
               ),
             ),
@@ -280,12 +284,14 @@ class _CampusAtmospherePainter extends CustomPainter {
   final _TimeAtmosphere atmosphere;
   final double sunXRatio;
   final List<List<_LeafSpray>> treeCrowns;
+  final bool showBuilding;
 
   _CampusAtmospherePainter({
     required this.time,
     required this.atmosphere,
     required this.sunXRatio,
     required this.treeCrowns,
+    this.showBuilding = true,
   });
 
   double get night => atmosphere.nightFactor;
@@ -491,7 +497,7 @@ class _CampusAtmospherePainter extends CustomPainter {
     _drawDistantHorizon(canvas, w, baseY, n);
 
     // 6. GEDUNG REKTORAT UNESA LIDAH WETAN (3D PERSPEKTIF & BAYANGAN)
-    _drawUnesaRectorateBuilding(canvas, w * 0.5, baseY, w, h, n);
+    if (showBuilding) _drawUnesaRectorateBuilding(canvas, w * 0.5, baseY, w, h, n);
 
     // 7. HAMPARAN LAPANGAN RUMPUT & JALAN SETAPAK PAVING
     final lawnPaint = Paint()
@@ -509,72 +515,76 @@ class _CampusAtmospherePainter extends CustomPainter {
 
     _drawLawnTexture(canvas, w, h, baseY, n);
 
-    // Bayangan jatuh gedung rektorat di atas lapangan rumput
-    final bShadowPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        stops: const [0.0, 0.65, 1.0],
-        colors: [
-          n < 0.5 ? const Color(0x700C2416) : const Color(0x9E020610),
-          n < 0.5 ? const Color(0x2E0E2A1A) : const Color(0x47030812),
-          const Color(0x000F2A1A),
-        ],
-      ).createShader(Rect.fromLTWH(0, baseY, w, 42));
-    final bShadowPath = Path()
-      ..moveTo(w * 0.5 - 184, baseY)
-      ..lineTo(w * 0.5 + 178, baseY)
-      ..lineTo(w * 0.5 + 156, baseY + 40)
-      ..lineTo(w * 0.5 - 208, baseY + 40)
-      ..close();
-    canvas.drawPath(bShadowPath, bShadowPaint);
+    if (showBuilding) {
+      // Bayangan jatuh gedung rektorat di atas lapangan rumput
+      final bShadowPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0.0, 0.65, 1.0],
+          colors: [
+            n < 0.5 ? const Color(0x700C2416) : const Color(0x9E020610),
+            n < 0.5 ? const Color(0x2E0E2A1A) : const Color(0x47030812),
+            const Color(0x000F2A1A),
+          ],
+        ).createShader(Rect.fromLTWH(0, baseY, w, 42));
+      final bShadowPath = Path()
+        ..moveTo(w * 0.5 - 184, baseY)
+        ..lineTo(w * 0.5 + 178, baseY)
+        ..lineTo(w * 0.5 + 156, baseY + 40)
+        ..lineTo(w * 0.5 - 208, baseY + 40)
+        ..close();
+      canvas.drawPath(bShadowPath, bShadowPaint);
 
-    // Jalur setapak paving perspektif di tengah
-    final pathPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _lerpRGB([232, 238, 245], [36, 48, 72], n),
-          _lerpRGB([194, 204, 218], [22, 32, 50], n),
-        ],
-      ).createShader(Rect.fromLTWH(0, baseY, w, h - baseY));
-    final walkPath = Path()
-      ..moveTo(w * 0.5 - 16, baseY)
-      ..lineTo(w * 0.5 + 16, baseY)
-      ..lineTo(w * 0.5 + 36, h)
-      ..lineTo(w * 0.5 - 36, h)
-      ..close();
-    canvas.drawPath(walkPath, pathPaint);
+      // Jalur setapak paving perspektif di tengah
+      final pathPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _lerpRGB([232, 238, 245], [36, 48, 72], n),
+            _lerpRGB([194, 204, 218], [22, 32, 50], n),
+          ],
+        ).createShader(Rect.fromLTWH(0, baseY, w, h - baseY));
+      final walkPath = Path()
+        ..moveTo(w * 0.5 - 16, baseY)
+        ..lineTo(w * 0.5 + 16, baseY)
+        ..lineTo(w * 0.5 + 36, h)
+        ..lineTo(w * 0.5 - 36, h)
+        ..close();
+      canvas.drawPath(walkPath, pathPaint);
 
-    // Kanstin paving kiri & kanan
-    canvas.drawLine(
-      Offset(w * 0.5 - 16, baseY),
-      Offset(w * 0.5 - 36, h),
-      Paint()
-        ..color = _lerpRGB([148, 163, 184], [15, 23, 42], n)
-        ..strokeWidth = 2.0,
-    );
-    canvas.drawLine(
-      Offset(w * 0.5 + 16, baseY),
-      Offset(w * 0.5 + 36, h),
-      Paint()
-        ..color = _lerpRGB([255, 255, 255], [82, 102, 134], n)
-        ..strokeWidth = 1.8,
-    );
+      // Kanstin paving kiri & kanan
+      canvas.drawLine(
+        Offset(w * 0.5 - 16, baseY),
+        Offset(w * 0.5 - 36, h),
+        Paint()
+          ..color = _lerpRGB([148, 163, 184], [15, 23, 42], n)
+          ..strokeWidth = 2.0,
+      );
+      canvas.drawLine(
+        Offset(w * 0.5 + 16, baseY),
+        Offset(w * 0.5 + 36, h),
+        Paint()
+          ..color = _lerpRGB([255, 255, 255], [82, 102, 134], n)
+          ..strokeWidth = 1.8,
+      );
 
-    final jointPaint = Paint()
-      ..color = n < 0.5 ? const Color(0x3D64748B) : const Color(0x730F172A)
-      ..strokeWidth = 0.8;
-    for (double py = baseY + 6; py < h; py += 8) {
-      final ratio = (py - baseY) / max(1.0, h - baseY);
-      final halfW = 16.0 + ratio * 20.0;
-      canvas.drawLine(Offset(w * 0.5 - halfW, py), Offset(w * 0.5 + halfW, py), jointPaint);
+      final jointPaint = Paint()
+        ..color = n < 0.5 ? const Color(0x3D64748B) : const Color(0x730F172A)
+        ..strokeWidth = 0.8;
+      for (double py = baseY + 6; py < h; py += 8) {
+        final ratio = (py - baseY) / max(1.0, h - baseY);
+        final halfW = 16.0 + ratio * 20.0;
+        canvas.drawLine(Offset(w * 0.5 - halfW, py), Offset(w * 0.5 + halfW, py), jointPaint);
+      }
     }
 
     // 8. TERAS PLAZA BERUNDAK 3D, TUGU PRASASTI & TIANG BENDERA TENGAH
-    _drawRectoratePlaza(canvas, w * 0.5, baseY, n);
-    _drawCenterFlagpole(canvas, w * 0.5, baseY + 8 * scaleH, n);
+    if (showBuilding) {
+      _drawRectoratePlaza(canvas, w * 0.5, baseY, n);
+      _drawCenterFlagpole(canvas, w * 0.5, baseY + 8 * scaleH, n);
+    }
 
     // 9. PEPOHONAN ORGANIK 3D REALISTIS DI SISI KIRI & KANAN
     final trees = [
@@ -1039,11 +1049,15 @@ class _CampusAtmospherePainter extends CustomPainter {
 
     if (n > 0.25) {
       final nightWin = Paint()..color = const Color(0xFFFEF08A).withValues(alpha: 0.5 * n);
+      // Jendela yang bersinggungan dengan plakat logo dilewati agar tidak
+      // ada sisa jendela yang mengintip di pinggir plakat.
+      const plaqueZone = Rect.fromLTWH(-19.5, -156, 39, 42);
       for (double ry = -146; ry <= -38; ry += 16) {
-        canvas.drawRect(Rect.fromLTWH(-34, ry, 10, 7), nightWin);
-        canvas.drawRect(Rect.fromLTWH(-20, ry, 10, 7), nightWin);
-        canvas.drawRect(Rect.fromLTWH(10, ry, 10, 7), nightWin);
-        canvas.drawRect(Rect.fromLTWH(24, ry, 10, 7), nightWin);
+        for (final wx in const [-34.0, -20.0, 10.0, 24.0]) {
+          final winRect = Rect.fromLTWH(wx, ry, 10, 7);
+          if (winRect.overlaps(plaqueZone)) continue;
+          canvas.drawRect(winRect, nightWin);
+        }
       }
     }
 
@@ -1083,7 +1097,11 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4,
     );
-    _drawUnesaCrestEmblem(canvas, 0, -138, 12.2);
+    if (UnesaLogoCache.image != null) {
+      drawUnesaLogoFit(canvas, Rect.fromCenter(center: const Offset(0, -136), width: 25, height: 27));
+    } else {
+      _drawUnesaCrestEmblem(canvas, 0, -138, 12.2);
+    }
 
     canvas.drawRect(const Rect.fromLTWH(-38, -32, 2.5, 32), Paint()..color = terracottaShade);
     canvas.drawRect(const Rect.fromLTWH(-35.5, -32, 10.5, 32), Paint()..color = terracottaLit);
