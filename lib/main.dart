@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'auth_screens.dart';
 import 'core.dart';
 import 'firebase_options.dart';
+import 'guard_screens.dart';
 import 'splash_screen.dart';
+import 'student_screens.dart';
 import 'unesa_logo.dart';
 
 Future<void> main() async {
@@ -17,6 +19,11 @@ Future<void> main() async {
 
   await settings.load();
   await UnesaLogoCache.ensureLoaded();
+
+  await store.restoreSession();
+  if (store.isLoggedIn) {
+    await store.load();
+  }
 
   if (!kIsWeb) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -32,11 +39,33 @@ Future<void> main() async {
   runApp(const CampusFindApp());
 }
 
+TextTheme _buildCleanTextTheme(Brightness brightness) {
+  final isDarkMode = brightness == Brightness.dark;
+  final primaryText = isDarkMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+  final secondaryText = isDarkMode ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
+
+  return TextTheme(
+    headlineLarge: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.6, height: 1.2),
+    headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.5, height: 1.25),
+    titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.3),
+    titleMedium: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: primaryText, letterSpacing: -0.2),
+    titleSmall: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: primaryText),
+    bodyLarge: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: primaryText, height: 1.45),
+    bodyMedium: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, color: secondaryText, height: 1.45),
+    bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: secondaryText, height: 1.4),
+    labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+  );
+}
+
 class CampusFindApp extends StatelessWidget {
   const CampusFindApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final Widget initialTarget = store.isLoggedIn
+        ? (store.guard ? const GuardShell() : const StudentShell())
+        : const ChooseLoginScreen();
+
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
@@ -49,54 +78,60 @@ class CampusFindApp extends StatelessWidget {
           theme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.light,
+            textTheme: _buildCleanTextTheme(Brightness.light),
             colorScheme: ColorScheme.fromSeed(
-              seedColor: kGreen,
-              primary: kGreen,
-              secondary: kDeep,
+              seedColor: kToska,
+              primary: kToska,
+              secondary: kNavyPrimary,
+              surface: Colors.white,
               brightness: Brightness.light,
             ),
             scaffoldBackgroundColor: Colors.transparent,
             appBarTheme: AppBarTheme(
-              backgroundColor: Colors.white.withValues(alpha: 0.78),
-              foregroundColor: kDeep,
+              backgroundColor: Colors.white.withValues(alpha: 0.88),
+              foregroundColor: kNavyPrimary,
               elevation: 0,
               scrolledUnderElevation: 0,
               centerTitle: false,
               titleTextStyle: const TextStyle(
-                color: kDeep,
+                color: kNavyPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
               ),
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.84),
+              fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: kGreen.withValues(alpha: 0.25)),
+                borderSide: const BorderSide(color: Color(0xFFDCE6F2)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: kGreen.withValues(alpha: 0.25)),
+                borderSide: const BorderSide(color: Color(0xFFDCE6F2)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: kGreen, width: 1.6),
+                borderSide: const BorderSide(color: kToska, width: 1.6),
               ),
             ),
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.dark,
+            textTheme: _buildCleanTextTheme(Brightness.dark),
             colorScheme: ColorScheme.fromSeed(
-              seedColor: kGreen,
-              primary: kGreen,
+              seedColor: const Color(0xFF22B8CF),
+              primary: const Color(0xFF22B8CF),
+              secondary: const Color(0xFF60A5FA),
+              surface: const Color(0xFF111D30),
               brightness: Brightness.dark,
             ),
             scaffoldBackgroundColor: Colors.transparent,
             appBarTheme: AppBarTheme(
-              backgroundColor: const Color(0xFF0F1E17).withValues(alpha: 0.78),
+              backgroundColor: const Color(0xFF0C1626).withValues(alpha: 0.88),
               foregroundColor: Colors.white,
               elevation: 0,
               scrolledUnderElevation: 0,
@@ -105,23 +140,24 @@ class CampusFindApp extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
               ),
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: const Color(0xFF152D22).withValues(alpha: 0.75),
+              fillColor: const Color(0xFF111D30),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: const Color(0xFF34D399).withValues(alpha: 0.24)),
+                borderSide: const BorderSide(color: Color(0xFF1E3250)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: const Color(0xFF34D399).withValues(alpha: 0.24)),
+                borderSide: const BorderSide(color: Color(0xFF1E3250)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: kGreen, width: 1.6),
+                borderSide: const BorderSide(color: Color(0xFF22B8CF), width: 1.6),
               ),
             ),
           ),
@@ -135,7 +171,7 @@ class CampusFindApp extends StatelessWidget {
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
                   statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-                  systemNavigationBarColor: dark ? const Color(0xFF07130D) : const Color(0xFFEFF8F3),
+                  systemNavigationBarColor: dark ? const Color(0xFF09111E) : const Color(0xFFF1F5F9),
                   systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
                 ),
                 child: SafeArea(
@@ -145,7 +181,6 @@ class CampusFindApp extends StatelessWidget {
                   bottom: mq.viewPadding.bottom > 0,
                   child: Stack(
                     children: [
-                      // Latar gradien zamrud lembut agar efek Tinted Emerald Glass terlihat hidup
                       Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
@@ -153,13 +188,20 @@ class CampusFindApp extends StatelessWidget {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: dark
-                                  ? const [Color(0xFF06100B), Color(0xFF0D2319), Color(0xFF07130D)]
-                                  : const [Color(0xFFEFF8F3), Color(0xFFDCF2E6), Color(0xFFF5FBF8)],
+                                  ? const [
+                                Color(0xFF09111E),
+                                Color(0xFF0E1B2E),
+                                Color(0xFF09111E),
+                              ]
+                                  : const [
+                                Color(0xFFF1F5F9),
+                                Color(0xFFE5F7F5),
+                                Color(0xFFF8FAFC),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      // Pendar cahaya zamrud di sudut kanan atas & kiri bawah
                       Positioned(
                         top: -90,
                         right: -70,
@@ -171,7 +213,7 @@ class CampusFindApp extends StatelessWidget {
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
                                 colors: [
-                                  kGreen.withValues(alpha: dark ? 0.22 : 0.16),
+                                  kToska.withValues(alpha: dark ? 0.18 : 0.12),
                                   Colors.transparent,
                                 ],
                               ),
@@ -190,7 +232,7 @@ class CampusFindApp extends StatelessWidget {
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
                                 colors: [
-                                  const Color(0xFF34D399).withValues(alpha: dark ? 0.16 : 0.14),
+                                  kNavyPrimary.withValues(alpha: dark ? 0.22 : 0.08),
                                   Colors.transparent,
                                 ],
                               ),
@@ -205,8 +247,8 @@ class CampusFindApp extends StatelessWidget {
               ),
             );
           },
-          home: const CampusSplashScreen(
-            nextScreen: ChooseLoginScreen(),
+          home: CampusSplashScreen(
+            nextScreen: initialTarget,
           ),
         );
       },

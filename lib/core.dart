@@ -6,15 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const kGreen = Color(0xFF1FA35C);
-const kDeep = Color(0xFF0B5D3B);
-const kLeaf = Color(0xFFE6F6EC);
+// Palet Warna Utama CampusFind UNESA
+const kNavyPrimary = Color(0xFF0B2058); // Biru Utama UNESA (Satpam / Institusi)
+const kToska = Color(0xFF1080A6);       // Toska Utama (Mahasiswa / Aksi Utama)
+const kMintSoft = Color(0xFFE5F7F5);    // Hijau Muda / Mint lembut
+const kGreen = kToska;                  // Alias agar kompatibel dengan file lama
+const kDeep = Color(0xFF09111E);        // Deep Midnight Navy (Mode Gelap)
+const kLeaf = Color(0xFFF1F5F9);        // Abu Muda Bersih (Mode Terang)
 
 bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
-Color cardC(BuildContext c) => isDark(c) ? const Color(0xFF14261D) : Colors.white;
-Color borderC(BuildContext c) => isDark(c) ? const Color(0xFF244235) : const Color(0xFFDCEBE1);
-Color mutedC(BuildContext c) => isDark(c) ? Colors.white60 : Colors.black54;
-Color softC(BuildContext c) => isDark(c) ? const Color(0xFF1B3327) : kLeaf;
+Color cardC(BuildContext c) => isDark(c) ? const Color(0xFF111D30) : Colors.white;
+Color borderC(BuildContext c) => isDark(c) ? const Color(0xFF1E3250) : const Color(0xFFDCE6F2);
+Color mutedC(BuildContext c) => isDark(c) ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+Color softC(BuildContext c) => isDark(c) ? const Color(0xFF162740) : const Color(0xFFF1F5F9);
 Color onSky(BuildContext c) => Colors.white;
 const skyShadow = [
   Shadow(color: Color(0xDD000000), blurRadius: 8, offset: Offset(0, 2)),
@@ -24,14 +28,14 @@ const skyShadow = [
 // ------------------------------------------------------------ pilihan form
 const categories = ['Dompet', 'Elektronik', 'Tas', 'Kunci', 'Pakaian', 'Dokumen/Kartu', 'Alat Tulis', 'Lainnya'];
 const catIcons = {
-  'Dompet': Icons.account_balance_wallet,
-  'Elektronik': Icons.smartphone,
-  'Tas': Icons.backpack,
-  'Kunci': Icons.key,
-  'Pakaian': Icons.checkroom,
-  'Dokumen/Kartu': Icons.badge,
-  'Alat Tulis': Icons.edit,
-  'Lainnya': Icons.inventory_2,
+  'Dompet': Icons.account_balance_wallet_outlined,
+  'Elektronik': Icons.smartphone_outlined,
+  'Tas': Icons.backpack_outlined,
+  'Kunci': Icons.key_outlined,
+  'Pakaian': Icons.checkroom_outlined,
+  'Dokumen/Kartu': Icons.badge_outlined,
+  'Alat Tulis': Icons.edit_outlined,
+  'Lainnya': Icons.inventory_2_outlined,
 };
 const areas = [
   'Perpustakaan',
@@ -46,7 +50,10 @@ const areas = [
   'Gerbang / Jalan Kampus',
   'Lainnya',
 ];
-const posList = ['Pos Gerbang Depan', 'Pos Gerbang Belakang'];
+const defaultPosList = ['Pos Gerbang Depan', 'Pos Gerbang Belakang'];
+
+/// Daftar pos aktif (otomatis terbarui dari Firestore jika Admin menambah unit pos baru).
+List<String> get posList => store.availablePosList;
 
 const stWait = 'Menunggu Verifikasi';
 const stActive = 'Aktif';
@@ -64,8 +71,84 @@ String ago(DateTime t) {
   return '${d.inDays} hari lalu';
 }
 
+/// Menentukan nama shift aktif default berdasarkan jam saat ini.
+String currentShiftLabel([DateTime? now]) {
+  final h = (now ?? DateTime.now()).hour;
+  if (h >= 7 && h < 14) return 'Shift Pagi (07.00 - 14.00 WIB)';
+  if (h >= 14 && h < 21) return 'Shift Sore (14.00 - 21.00 WIB)';
+  return 'Shift Malam (21.00 - 07.00 WIB)';
+}
+
+/// Mengecek apakah jam sekarang masuk ke rentang shift (mis. "Shift Pagi (07.00 - 14.00 WIB)" atau "21.00 - 07.00").
+bool isShiftActiveNow(String shiftText, [DateTime? now]) {
+  final t = now ?? DateTime.now();
+  final nowMinutes = t.hour * 60 + t.minute;
+
+  final m = RegExp(r'(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})')
+      .firstMatch(shiftText);
+  if (m != null) {
+    final start = int.parse(m.group(1)!) * 60 + int.parse(m.group(2)!);
+    final end = int.parse(m.group(3)!) * 60 + int.parse(m.group(4)!);
+    if (start == end) return true;
+    if (start < end) {
+      return nowMinutes >= start && nowMinutes < end;
+    } else {
+      // Shift lintas tengah malam, misal 21.00 - 07.00
+      return nowMinutes >= start || nowMinutes < end;
+    }
+  }
+
+  final lower = shiftText.toLowerCase();
+  final h = t.hour;
+  if (lower.contains('pagi')) return h >= 7 && h < 14;
+  if (lower.contains('sore')) return h >= 14 && h < 21;
+  if (lower.contains('malam')) return h >= 21 || h < 7;
+  return true;
+}
+
 // ------------------------------------------------------------------ model
 enum ReportType { hilang, ditemukan }
+
+class PosDutyInfo {
+  final String posName;
+  final String officerName;
+  final String shift;
+  final DateTime updatedAt;
+
+  const PosDutyInfo({
+    required this.posName,
+    required this.officerName,
+    required this.shift,
+    required this.updatedAt,
+  });
+}
+
+class SatpamOfficer {
+  final String id;
+  final String name;
+  final String post;
+  final String shift;
+  final bool active;
+
+  const SatpamOfficer({
+    required this.id,
+    required this.name,
+    required this.post,
+    required this.shift,
+    required this.active,
+  });
+
+  factory SatpamOfficer.fromFirestore(Map<String, dynamic> j, String docId) =>
+      SatpamOfficer(
+        id: (j['id'] as String?)?.trim().isNotEmpty == true
+            ? (j['id'] as String).trim()
+            : docId,
+        name: (j['name'] as String?)?.trim() ?? 'Petugas Pos',
+        post: (j['post'] as String?)?.trim() ?? defaultPosList[0],
+        shift: (j['shift'] as String?)?.trim() ?? currentShiftLabel(),
+        active: (j['active'] as bool?) ?? true,
+      );
+}
 
 class Report {
   final String id, name, category, categoryCustom, description, secret, area, areaDetail, pos, owner;
@@ -75,6 +158,7 @@ class Report {
   String status;
   String token;
   DateTime? tokenExp;
+  String verifiedBy;
 
   Report({
     required this.id,
@@ -93,11 +177,12 @@ class Report {
     this.status = stActive,
     this.token = '',
     this.tokenExp,
+    this.verifiedBy = '',
   });
 
   String get typeLabel => type == ReportType.hilang ? 'Hilang' : 'Ditemukan';
   String get categoryLabel => category == 'Lainnya' && categoryCustom.isNotEmpty ? categoryCustom : category;
-  IconData get icon => catIcons[category] ?? Icons.inventory_2;
+  IconData get icon => catIcons[category] ?? Icons.inventory_2_outlined;
   bool get isPublic => status == stActive || status == stClaimed;
 
   Map<String, dynamic> toFirestore() => {
@@ -121,6 +206,7 @@ class Report {
     'status': status,
     'token': token,
     'exp': tokenExp?.toIso8601String(),
+    'verifiedBy': verifiedBy,
     'updatedAt': FieldValue.serverTimestamp(),
   };
 
@@ -138,13 +224,14 @@ class Report {
       secret: (j['secret'] ?? j['secretDetail'] ?? '') as String,
       area: (j['area'] ?? 'Lainnya') as String,
       areaDetail: (j['ad'] ?? '') as String,
-      pos: (j['pos'] ?? posList[0]) as String,
+      pos: (j['pos'] ?? defaultPosList[0]) as String,
       owner: (j['owner'] ?? j['reporterEmail'] ?? '') as String,
       date: j['date'] != null ? DateTime.tryParse(j['date'].toString()) ?? DateTime.now() : DateTime.now(),
       photo: j['photo'] as String?,
       status: (j['status'] ?? stWait) as String,
       token: (j['token'] ?? '') as String,
       tokenExp: j['exp'] == null ? null : DateTime.tryParse(j['exp'].toString()),
+      verifiedBy: (j['verifiedBy'] ?? '') as String,
     );
   }
 }
@@ -156,6 +243,8 @@ class Claim {
   String status;
   String token;
   DateTime? tokenExp;
+  String claimerNim;
+  String handedOverBy;
 
   Claim({
     required this.id,
@@ -168,6 +257,8 @@ class Claim {
     this.status = 'Menunggu',
     this.token = '',
     this.tokenExp,
+    this.claimerNim = '',
+    this.handedOverBy = '',
   });
 
   Map<String, dynamic> toFirestore() => {
@@ -181,6 +272,8 @@ class Claim {
     'status': status,
     'token': token,
     'exp': tokenExp?.toIso8601String(),
+    'claimerNim': claimerNim,
+    'handedOverBy': handedOverBy,
   };
 
   factory Claim.fromFirestore(Map<String, dynamic> j, String docId) => Claim(
@@ -194,6 +287,8 @@ class Claim {
     status: (j['status'] ?? 'Menunggu') as String,
     token: (j['token'] ?? '') as String,
     tokenExp: j['exp'] == null ? null : DateTime.tryParse(j['exp'].toString()),
+    claimerNim: (j['claimerNim'] ?? '') as String,
+    handedOverBy: (j['handedOverBy'] ?? '') as String,
   );
 }
 
@@ -253,7 +348,6 @@ double _jac(Set<String> a, Set<String> b) {
   return a.intersection(b).length / a.union(b).length;
 }
 
-/// Skor kemiripan 0..1 antara laporan hilang dan laporan temuan.
 double matchScore(Report lost, Report found) {
   var s = 0.0;
   if (lost.category == found.category) {
@@ -324,7 +418,23 @@ class Store extends ChangeNotifier {
   String email = '';
   String customName = '';
   bool guard = false;
-  String guardPos = posList[0];
+  String guardId = '';
+  String guardPos = defaultPosList[0];
+
+  List<String> customPosUnits = [];
+  List<String> get availablePosList {
+    final merged = <String>[...defaultPosList];
+    for (final p in customPosUnits) {
+      if (p.trim().isNotEmpty && !merged.any((m) => m.toLowerCase() == p.trim().toLowerCase())) {
+        merged.add(p.trim());
+      }
+    }
+    return merged;
+  }
+
+  final Map<String, PosDutyInfo> posDuties = {};
+  List<SatpamOfficer> officers = [];
+
   List<Report> reports = [];
   List<Claim> claims = [];
   List<AppNotif> notifs = [];
@@ -336,16 +446,81 @@ class Store extends ChangeNotifier {
   StreamSubscription? _claimSub;
   StreamSubscription? _notifSub;
   StreamSubscription? _posTokenSub;
+  StreamSubscription? _campusPostSub;
+  StreamSubscription? _officerSub;
 
   String get _nameStorageKey => 'custom_name_${guard ? "guard" : (email.isNotEmpty ? email : "user")}';
 
   String get name {
     if (customName.trim().isNotEmpty) return customName.trim();
     if (currentUser?.name.isNotEmpty == true) return currentUser!.name.trim();
-    if (guard) return 'Bapak Ahmad';
+    if (guard) return 'Petugas Pos';
     final raw = email.split('@').first.replaceAll(RegExp(r'[._\-\d]+'), ' ').trim();
     if (raw.isEmpty) return 'Warga UNESA';
     return raw.split(' ').where((e) => e.isNotEmpty).map((e) => e[0].toUpperCase() + e.substring(1)).join(' ');
+  }
+
+  /// Mengambil petugas yang SEDANG BERTUGAS sekarang di [pos] berdasarkan jadwal Admin & jam saat ini.
+  SatpamOfficer? activeOfficerForPos(String pos, [DateTime? now]) {
+    final clean = pos.trim().toLowerCase();
+    final atPos = officers
+        .where((o) => o.active && o.post.trim().toLowerCase() == clean)
+        .toList();
+    if (atPos.isEmpty) return null;
+
+    for (final o in atPos) {
+      if (isShiftActiveNow(o.shift, now)) return o;
+    }
+    return atPos.first;
+  }
+
+  /// Semua petugas aktif yang terdaftar di [pos] (lintas shift).
+  List<SatpamOfficer> officersAtPos(String pos) {
+    final clean = pos.trim().toLowerCase();
+    return officers
+        .where((o) => o.active && o.post.trim().toLowerCase() == clean)
+        .toList();
+  }
+
+  /// Data satpam yang sedang login dari koleksi satpam_officers.
+  SatpamOfficer? get currentGuardOfficer {
+    if (!guard) return null;
+    final cleanId = guardId.trim().toUpperCase();
+    if (cleanId.isNotEmpty) {
+      for (final o in officers) {
+        if (o.id.toUpperCase() == cleanId) return o;
+      }
+    }
+    for (final o in officers) {
+      if (o.name.toLowerCase() == name.toLowerCase()) return o;
+    }
+    return null;
+  }
+
+  PosDutyInfo? dutyForPos(String pos) {
+    final active = activeOfficerForPos(pos);
+    if (active != null) {
+      return PosDutyInfo(
+        posName: active.post,
+        officerName: active.name,
+        shift: active.shift,
+        updatedAt: DateTime.now(),
+      );
+    }
+    return posDuties[pos.trim()];
+  }
+
+  void _syncLoggedInGuardAssignment() {
+    if (!guard) return;
+    final me = currentGuardOfficer;
+    if (me != null) {
+      final posChanged = guardPos != me.post;
+      guardPos = me.post;
+      if (me.name.isNotEmpty) customName = me.name;
+      if (posChanged) {
+        issuePosToken(guardPos);
+      }
+    }
   }
 
   Future<void> login({
@@ -373,6 +548,9 @@ class Store extends ChangeNotifier {
     currentUser = user;
     guard = (user.role == 'satpam' || user.role == 'guard');
     email = user.email;
+    if (guard) {
+      guardId = user.uid.trim().toUpperCase();
+    }
     if (user.name.isNotEmpty) customName = user.name;
     if (guard && user.postName.isNotEmpty) guardPos = user.postName;
 
@@ -385,6 +563,13 @@ class Store extends ChangeNotifier {
     await prefs.setString('user_role', user.role);
     await prefs.setString('user_post_name', user.postName);
     await prefs.setString('user_photo_url', user.photoUrl);
+
+    if (guard) {
+      await prefs.setString('guard_id', guardId);
+      await prefs.setString('guard_pos', guardPos);
+      _syncLoggedInGuardAssignment();
+      await issuePosToken(guardPos);
+    }
 
     notifyListeners();
   }
@@ -422,6 +607,9 @@ class Store extends ChangeNotifier {
       );
 
       guard = (savedRole == 'satpam' || savedRole == 'guard');
+      if (guard) {
+        guardId = (prefs.getString('guard_id') ?? finalUid).trim().toUpperCase();
+      }
       email = finalEmail;
       if (savedName.isNotEmpty) customName = savedName;
       if (guard && savedPostName.isNotEmpty) guardPos = savedPostName;
@@ -446,7 +634,59 @@ class Store extends ChangeNotifier {
         'name': clean,
         'email': email,
       }, SetOptions(merge: true));
+    } else if (guard && guardId.isNotEmpty) {
+      await _db.collection('satpam_officers').doc(guardId).set({
+        'name': clean,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
+  }
+
+  // ---------------------------------------------- Manajemen Pos (Kompatibilitas Lama)
+  Future<String?> addPosUnit(String posName) async {
+    final clean = posName.trim();
+    if (clean.isEmpty) return 'Nama pos tidak boleh kosong.';
+    if (availablePosList.any((p) => p.toLowerCase() == clean.toLowerCase())) {
+      return 'Pos "$clean" sudah terdaftar.';
+    }
+
+    customPosUnits.add(clean);
+    notifyListeners();
+
+    try {
+      await _db.collection('campus_posts').doc(_posDocId(clean)).set({
+        'name': clean,
+        'area': 'Area Kampus UNESA',
+        'active': true,
+        'createdBy': name,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return null;
+    } catch (e) {
+      return 'Gagal menambahkan pos ke server: $e';
+    }
+  }
+
+  Future<void> deletePosUnit(String posName) async {
+    final clean = posName.trim();
+    if (defaultPosList.contains(clean)) return;
+    customPosUnits.removeWhere((p) => p == clean);
+    if (guardPos == clean) {
+      guardPos = defaultPosList.first;
+    }
+    notifyListeners();
+    try {
+      await _db.collection('campus_posts').doc(_posDocId(clean)).delete();
+    } catch (_) {}
+  }
+
+  Future<void> takeOverShift(String posName) async {
+    final cleanPos = posName.trim();
+    guardPos = cleanPos;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_post_name', cleanPos);
+    notifyListeners();
+    await issuePosToken(cleanPos);
   }
 
   String nextReportId() => 'CF-${1000 + _rnd.nextInt(9000)}';
@@ -456,12 +696,52 @@ class Store extends ChangeNotifier {
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     await p.remove('cf_data_v3');
-    customName = p.getString(_nameStorageKey) ?? '';
+    final savedCustomName = p.getString(_nameStorageKey) ?? '';
+    if (savedCustomName.isNotEmpty) customName = savedCustomName;
 
     await _repSub?.cancel();
     await _claimSub?.cancel();
     await _notifSub?.cancel();
     await _posTokenSub?.cancel();
+    await _campusPostSub?.cancel();
+    await _officerSub?.cancel();
+
+    // 1. Dengarkan daftar pos tambahan dari Admin (campus_posts)
+    _campusPostSub = _db.collection('campus_posts').snapshots().listen((snap) {
+      final units = <String>[];
+      for (final d in snap.docs) {
+        final data = d.data();
+        final active = (data['active'] as bool?) ?? true;
+        final posName = (data['name'] as String?)?.trim() ?? '';
+        if (active && posName.isNotEmpty && !defaultPosList.contains(posName)) {
+          units.add(posName);
+        }
+      }
+      customPosUnits = units;
+      notifyListeners();
+    });
+
+    // 2. Dengarkan jadwal & penugasan satpam dari Admin (satpam_officers)
+    _officerSub = _db.collection('satpam_officers').snapshots().listen((snap) {
+      officers = snap.docs
+          .map((d) => SatpamOfficer.fromFirestore(d.data(), d.id))
+          .toList();
+
+      posDuties.clear();
+      for (final pos in availablePosList) {
+        final activeOfficer = activeOfficerForPos(pos);
+        if (activeOfficer != null) {
+          posDuties[pos] = PosDutyInfo(
+            posName: pos,
+            officerName: activeOfficer.name,
+            shift: activeOfficer.shift,
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+      _syncLoggedInGuardAssignment();
+      notifyListeners();
+    });
 
     _repSub = _db.collection('reports').snapshots().listen((snap) {
       final list = snap.docs
@@ -755,14 +1035,16 @@ class Store extends ChangeNotifier {
   }
 
   void approveReport(Report r) {
+    final activeOfficer = activeOfficerForPos(r.pos);
     r.status = stActive;
     r.token = '';
     r.tokenExp = null;
+    r.verifiedBy = guard ? name : (activeOfficer?.name ?? 'Petugas Pos');
     notify(
       r.owner,
       'verified',
       'Laporan terverifikasi & diunggah',
-      'Laporan "${r.name}" sudah dipindai dan disetujui satpam (${r.pos}). Sekarang laporanmu tampil di Beranda.',
+      'Laporan "${r.name}" sudah dipindai dan disetujui ${r.verifiedBy} (${r.pos}). Sekarang laporanmu tampil di Beranda.',
       reportId: r.id,
     );
     runMatching(r);
@@ -810,11 +1092,16 @@ class Store extends ChangeNotifier {
     _syncClaim(c);
   }
 
-  void approveClaim(Claim c) {
+  void approveClaim(Claim c, {String claimerNim = ''}) {
     final r = find(c.reportId);
+    final activeOfficer = r != null ? activeOfficerForPos(r.pos) : null;
     c.status = 'Disetujui';
     c.token = '';
     c.tokenExp = null;
+    if (claimerNim.trim().isNotEmpty) {
+      c.claimerNim = claimerNim.trim();
+    }
+    c.handedOverBy = guard ? name : (activeOfficer?.name ?? 'Petugas Pos');
     _syncClaim(c);
 
     for (final o in claims.where((x) => x.reportId == c.reportId && x.id != c.id && x.status == 'Menunggu')) {
@@ -843,7 +1130,7 @@ class Store extends ChangeNotifier {
       c.claimer,
       'claim',
       'Klaim disetujui!',
-      'Klaim "${r?.name ?? ''}" disetujui satpam. Barang diserahkan di ${r?.pos ?? 'pos satpam'}.',
+      'Klaim "${r?.name ?? ''}" disetujui oleh ${c.handedOverBy}. Barang diserahkan di ${r?.pos ?? 'pos satpam'}.',
       reportId: c.reportId,
     );
     notifyListeners();
@@ -908,7 +1195,6 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Dipanggil setelah satpam menyetujui sebuah laporan.
   void runMatching(Report r) {
     if (r.type == ReportType.hilang) {
       final c = <(Report, double)>[];
@@ -953,6 +1239,7 @@ class Store extends ChangeNotifier {
     email = '';
     customName = '';
     guard = false;
+    guardId = '';
     currentUser = null;
 
     try {

@@ -1,21 +1,19 @@
-import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_dashboard.dart';
+import 'cartoon.dart';
 import 'core.dart';
 import 'guard_screens.dart';
 import 'splash_screen.dart';
 import 'student_screens.dart';
-import 'unesa_logo.dart';
 import 'widgets.dart';
 
 const Color _kSlateTitle = Color(0xFF0F172A);
-const Color _kSlateBadgeText = Color(0xFF1E293B);
-const Color _kEmeraldGreen = Color(0xFF15803D);
-const Color _kTealGreen = Color(0xFF0F766E);
+const Color _kToskaMain = kToska; // #1080A6
+const Color _kNavyUnesa = kNavyPrimary; // #0B2058
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -110,6 +108,11 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         } catch (_) {}
 
+        if (email == 'admin@unesa.ac.id') {
+          role = 'admin';
+          await prefs.setString('user_role', 'admin');
+        }
+
         var unverified = false;
         if (!blocked && role != 'admin') {
           var verified = user.emailVerified;
@@ -167,684 +170,48 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-class _FlatUnesaPortalBanner extends StatefulWidget {
-  final double height;
-  final Widget? child;
-
-  const _FlatUnesaPortalBanner({
-    this.height = 195,
-    this.child,
-  });
-
-  @override
-  State<_FlatUnesaPortalBanner> createState() => _FlatUnesaPortalBannerState();
-}
-
-class _FlatUnesaPortalBannerState extends State<_FlatUnesaPortalBanner>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  bool get _isNightTime {
-    final hour = DateTime.now().hour;
-    return hour >= 18 || hour < 6;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 45),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = isDark(context) || _isNightTime;
-
-    return SizedBox(
-      width: double.infinity,
-      height: widget.height,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, _) {
-          return CustomPaint(
-            painter: _FlatUnesaRektoratBannerPainter(
-              progress: _ctrl.value,
-              isNight: dark,
-            ),
-            child: widget.child,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _FlatUnesaRektoratBannerPainter extends CustomPainter {
-  final double progress;
-  final bool isNight;
-
-  _FlatUnesaRektoratBannerPainter({
-    required this.progress,
-    required this.isNight,
-  }) : super(repaint: UnesaLogoCache.notifier);
+class _CampusSkylinePainter extends CustomPainter {
+  final Color color;
+  const _CampusSkylinePainter(this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
     final w = size.width;
     final h = size.height;
-    final groundY = h - 34;
-    final cx = w * 0.5;
-    final scale = (w / 440.0).clamp(0.76, 1.0);
 
-    final pathTopW = 22.0 * scale;
-    final pathBotW = 40.0 * scale;
-
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
-      Paint()
-        ..color = isNight
-            ? const Color(0xFF0A192F)
-            : const Color(0xFF0284C7),
-    );
-
-    if (isNight) {
-      final starPaint = Paint()..color = const Color(0xFFE2E8F0);
-      final stars = [
-        Offset(w * 0.12, h * 0.18),
-        Offset(w * 0.24, h * 0.30),
-        Offset(w * 0.36, h * 0.16),
-        Offset(w * 0.65, h * 0.18),
-        Offset(w * 0.78, h * 0.28),
-        Offset(w * 0.90, h * 0.15),
-      ];
-      for (final s in stars) {
-        canvas.drawCircle(s, 1.3, starPaint);
-      }
-    }
-
-    final skyBodyCenter = Offset(w * 0.84, h * 0.36);
-    if (isNight) {
-      canvas.drawCircle(
-        skyBodyCenter,
-        18,
-        Paint()..color = const Color(0xFF152A4A),
-      );
-      canvas.drawCircle(
-        skyBodyCenter,
-        11,
-        Paint()..color = const Color(0xFFFEF08A),
-      );
-    } else {
-      canvas.drawCircle(
-        skyBodyCenter,
-        13,
-        Paint()..color = const Color(0xFFFACC15),
-      );
-    }
-
-    final cloudColor =
-    isNight ? const Color(0xFF1E3A5F) : const Color(0xFFE0F2FE);
-    final span1 = w + 140;
-    final cloud1X = -90 + ((progress * span1) % span1);
-    final span2 = w + 120;
-    final cloud2X = -70 + (((progress + 0.48) % 1.0) * span2);
-
-    _drawFlatCloud(canvas, Offset(cloud1X, h * 0.25), 0.9, cloudColor);
-    _drawFlatCloud(canvas, Offset(cloud2X, h * 0.40), 0.72, cloudColor);
-
-    final hillBack =
-    isNight ? const Color(0xFF0A2218) : const Color(0xFF228B3B);
-    final grassBase =
-    isNight ? const Color(0xFF0D2E20) : const Color(0xFF2E9E44);
-    final grassFront =
-    isNight ? const Color(0xFF123B29) : const Color(0xFF42B856);
-    final bushShadow =
-    isNight ? const Color(0xFF071A12) : const Color(0xFF14532D);
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, groundY - 2)
-        ..quadraticBezierTo(w * 0.08, groundY - 12, w * 0.18, groundY + 1)
-        ..lineTo(w * 0.82, groundY + 1)
-        ..quadraticBezierTo(w * 0.92, groundY - 12, w, groundY - 2)
-        ..lineTo(w, h)
-        ..lineTo(0, h)
-        ..close(),
-      Paint()..color = hillBack,
-    );
-
-    canvas.drawRect(
-      Rect.fromLTWH(0, groundY, w, h - groundY),
-      Paint()..color = grassBase,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, groundY + 12)
-        ..quadraticBezierTo(w * 0.22, groundY + 20, cx - pathTopW, groundY + 15)
-        ..lineTo(cx - pathBotW, h)
-        ..lineTo(0, h)
-        ..close(),
-      Paint()..color = grassFront,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(w, groundY + 10)
-        ..quadraticBezierTo(w * 0.78, groundY + 19, cx + pathTopW, groundY + 14)
-        ..lineTo(cx + pathBotW, h)
-        ..lineTo(w, h)
-        ..close(),
-      Paint()..color = grassFront,
-    );
-
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx - 124 * scale, groundY + 3),
-        width: 78 * scale,
-        height: 11 * scale,
-      ),
-      Paint()..color = bushShadow,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx + 124 * scale, groundY + 3),
-        width: 78 * scale,
-        height: 11 * scale,
-      ),
-      Paint()..color = bushShadow,
-    );
-
-    final bladeDarkPaint = Paint()
-      ..color = isNight ? const Color(0xFF071A12) : const Color(0xFF14532D)
-      ..strokeWidth = 1.15
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final bladeLightPaint = Paint()
-      ..color = isNight ? const Color(0xFF2E6F52) : const Color(0xFF86EFAC)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    for (double bx = 8; bx < w - 8; bx += 9.5) {
-      if ((bx - cx).abs() < 34 * scale) continue;
-      final curveOffset = math.sin((bx / w) * math.pi) * 4.0;
-      final by = groundY + 10.0 + curveOffset;
-      canvas.drawPath(
-        Path()
-          ..moveTo(bx - 2.0, by - 4.0)
-          ..lineTo(bx - 0.3, by)
-          ..lineTo(bx + 2.2, by - 3.8),
-        bladeDarkPaint,
-      );
-    }
-
-    for (double bx = 10; bx < w - 10; bx += 10.5) {
-      if ((bx - cx).abs() < 44 * scale) continue;
-      final curveOffset = math.sin((bx / w) * math.pi) * 5.0;
-      final by = groundY + 25.0 + curveOffset;
-      canvas.drawPath(
-        Path()
-          ..moveTo(bx - 2.2, by - 4.5)
-          ..lineTo(bx - 0.2, by)
-          ..lineTo(bx + 2.4, by - 4.2),
-        bladeLightPaint,
-      );
-    }
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(cx - pathTopW, groundY)
-        ..lineTo(cx + pathTopW, groundY)
-        ..lineTo(cx + pathBotW, h)
-        ..lineTo(cx - pathBotW, h)
-        ..close(),
-      Paint()
-        ..color = isNight ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-    );
-    canvas.drawLine(
-      Offset(cx - pathTopW, groundY),
-      Offset(cx - pathBotW, h),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.7)
-        ..strokeWidth = 1.4,
-    );
-    canvas.drawLine(
-      Offset(cx + pathTopW, groundY),
-      Offset(cx + pathBotW, h),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.7)
-        ..strokeWidth = 1.4,
-    );
-
-    canvas.save();
-    canvas.translate(cx, groundY);
-    canvas.scale(scale, scale);
-
-    final wallWhite = isNight ? const Color(0xFFCBD5E1) : Colors.white;
-    final wallShadow = isNight ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0);
-    final glassBlue = isNight ? const Color(0xFF1D4ED8) : const Color(0xFF0284C7);
-    final glassDeep = isNight ? const Color(0xFF1E3A8A) : const Color(0xFF0369A1);
-    const navyBox = Color(0xFF0B357A);
-    const roofBrown = Color(0xFF5C4033);
-    const roofLine = Color(0xFF3E2723);
-
-    for (final dir in [-1.0, 1.0]) {
-      canvas.save();
-      if (dir < 0) canvas.scale(-1, 1);
-
-      const wx = 44.0;
-      const ww = 92.0;
-      const wh = 68.0;
-
-      canvas.drawRect(
-        const Rect.fromLTWH(wx, -wh, ww, wh),
-        Paint()..color = wallWhite,
-      );
-
-      canvas.drawPath(
-        Path()
-          ..moveTo(wx - 3, -wh)
-          ..lineTo(wx + ww * 0.48, -wh - 12)
-          ..lineTo(wx + ww + 3, -wh)
-          ..close(),
-        Paint()..color = roofBrown,
-      );
-      canvas.drawLine(
-        Offset(wx - 3, -wh),
-        Offset(wx + ww + 3, -wh),
-        Paint()
-          ..color = wallWhite
-          ..strokeWidth = 2.0,
-      );
-
-      canvas.drawRect(
-        const Rect.fromLTWH(wx, -wh + 2, ww - 8, 22),
-        Paint()..color = glassBlue,
-      );
-      final gridPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.45)
-        ..strokeWidth = 0.8;
-      canvas.drawLine(
-          const Offset(wx, -wh + 13), const Offset(wx + ww - 8, -wh + 13), gridPaint);
-      for (double gx = wx + 14; gx < wx + ww - 8; gx += 14) {
-        canvas.drawLine(Offset(gx, -wh + 2), Offset(gx, -wh + 24), gridPaint);
-      }
-
-      canvas.drawRect(
-        const Rect.fromLTWH(wx, -44, ww - 14, 44),
-        Paint()..color = glassDeep,
-      );
-      canvas.drawRect(
-        const Rect.fromLTWH(wx + 6, -16, 46, 5),
-        Paint()..color = wallWhite,
-      );
-      for (var p = 0; p < 4; p++) {
-        final px = wx + 8.0 + p * 14.0;
-        canvas.drawRect(
-          Rect.fromLTWH(px, -44, 6.5, 44),
-          Paint()..color = wallWhite,
-        );
-      }
-
-      canvas.drawRect(
-        const Rect.fromLTWH(wx + ww - 14, -44, 14, 44),
-        Paint()..color = wallShadow,
-      );
-      canvas.drawRect(
-        const Rect.fromLTWH(wx + 2, -6, ww - 4, 6),
-        Paint()
-          ..color = isNight ? const Color(0xFF14532D) : const Color(0xFF15803D),
-      );
-
-      canvas.restore();
-    }
-
-    const tw = 88.0;
-    const th = 114.0;
-
-    canvas.drawRect(
-      const Rect.fromLTWH(-tw / 2, -th, tw, th),
-      Paint()..color = wallWhite,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(-tw / 2 - 5, -th)
-        ..lineTo(0, -th - 15)
-        ..lineTo(tw / 2 + 5, -th)
-        ..close(),
-      Paint()..color = roofBrown,
-    );
-    for (var i = -3; i <= 3; i++) {
-      canvas.drawLine(
-        const Offset(0, -th - 15),
-        Offset(i * 13.0, -th),
-        Paint()
-          ..color = roofLine.withValues(alpha: 0.45)
-          ..strokeWidth = 0.8,
-      );
-    }
-    canvas.drawRect(
-      const Rect.fromLTWH(-tw / 2 - 5, -th, tw + 10, 3.5),
-      Paint()..color = wallWhite,
-    );
-
-    canvas.drawRect(
-      const Rect.fromLTWH(-28, -th + 4, 56, th - 22),
-      Paint()..color = glassBlue,
-    );
-    for (double ky = -th + 16; ky < -20; ky += 11) {
-      canvas.drawLine(
-        Offset(-28, ky),
-        Offset(28, ky),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.35)
-          ..strokeWidth = 0.8,
-      );
-    }
-
-    canvas.drawRect(
-      const Rect.fromLTWH(-7, -78, 14, 60),
-      Paint()..color = wallWhite,
-    );
-    for (var wRow = 0; wRow < 6; wRow++) {
-      canvas.drawRect(
-        Rect.fromLTWH(-3.5, -75 + wRow * 9.5, 7, 6),
-        Paint()
-          ..color = isNight ? const Color(0xFFFDE047) : navyBox,
-      );
-    }
-
-    for (var row = 0; row < 10; row++) {
-      final wy = -th + 8.0 + row * 9.2;
-      final winColor = isNight ? const Color(0xFFFDE047) : navyBox;
-      canvas.drawRect(
-        Rect.fromLTWH(-tw / 2 + 5, wy, 5.5, 5.5),
-        Paint()..color = winColor,
-      );
-      canvas.drawRect(
-        Rect.fromLTWH(tw / 2 - 10.5, wy, 5.5, 5.5),
-        Paint()..color = winColor,
-      );
-    }
-
-    canvas.drawRect(
-      const Rect.fromLTWH(-14, -th + 6, 28, 30),
-      Paint()..color = wallWhite,
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(-12.2, -th + 7.8, 24.4, 26.4),
-      Paint()..color = navyBox,
-    );
-    drawUnesaBadge(canvas, const Offset(0, -th + 21), 10.5);
-
-    canvas.drawRect(
-      const Rect.fromLTWH(-28, -24, 9, 24),
-      Paint()..color = const Color(0xFFDC2626),
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(19, -24, 9, 24),
-      Paint()..color = const Color(0xFFDC2626),
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(-19, -20, 38, 20),
-      Paint()..color = const Color(0xFF1E293B),
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(-12, -16, 24, 4),
-      Paint()..color = const Color(0xFFEF4444),
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(-31, -18, 62, 4),
-      Paint()..color = wallWhite,
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(-34, -5, 68, 5),
-      Paint()..color = wallShadow,
-    );
-
-    _drawDetailedTree(canvas, -138, 4, 1.02);
-    _drawDetailedTree(canvas, -110, 4, 0.86);
-    _drawDetailedTree(canvas, 110, 4, 0.86);
-    _drawDetailedTree(canvas, 138, 4, 1.02);
-
-    const poleTop = -84.0;
-    const poleBot = 6.0;
-
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, poleBot), width: 22, height: 6),
-      Paint()..color = Colors.white,
-    );
-    canvas.drawLine(
-      const Offset(0, poleTop),
-      const Offset(0, poleBot),
-      Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2.4
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      const Offset(0, poleTop - 1),
-      2.5,
-      Paint()..color = const Color(0xFFF59E0B),
-    );
-
-    final wind = progress * math.pi * 24;
-    const flagW = 24.0;
-    const flagH = 14.0;
-    const flagY = poleTop + 2.5;
-
-    Path flagBand(double y0, double bh) {
-      final p = Path()..moveTo(0, y0);
-      const steps = 10;
-      for (var i = 1; i <= steps; i++) {
-        final r = i / steps;
-        final x = flagW * r;
-        final wv = math.sin(wind - r * 4.2) * 1.8 * r;
-        p.lineTo(x, y0 + wv);
-      }
-      for (var i = steps; i >= 0; i--) {
-        final r = i / steps;
-        final x = flagW * r;
-        final wv = math.sin(wind - r * 4.2) * 1.8 * r;
-        p.lineTo(x, y0 + bh + wv);
-      }
-      p.close();
-      return p;
-    }
-
-    canvas.drawPath(
-      flagBand(flagY, flagH / 2),
-      Paint()..color = const Color(0xFFDC2626),
-    );
-    canvas.drawPath(
-      flagBand(flagY + flagH / 2, flagH / 2),
-      Paint()..color = Colors.white,
-    );
-
-    canvas.restore();
-
-    if (isNight) {
-      final t = progress * 45.0;
-      final bugs = [
-        (0.14, 0.38, 0.2),
-        (0.26, 0.65, 1.5),
-        (0.72, 0.44, 2.8),
-        (0.86, 0.68, 4.1),
-        (0.18, 0.86, 5.2),
-        (0.78, 0.85, 3.6),
-      ];
-      for (final b in bugs) {
-        final blink = 0.5 + 0.5 * math.sin(t * 2.5 + b.$3);
-        final pos = Offset(
-          w * b.$1 + math.sin(t + b.$3) * 7,
-          h * b.$2 + math.cos(t * 0.9 + b.$3) * 5,
-        );
-        canvas.drawCircle(
-          pos,
-          1.2 + blink * 1.1,
-          Paint()..color = const Color(0xFFFDE047),
-        );
-      }
-    }
-  }
-
-  void _drawFlatCloud(Canvas canvas, Offset pos, double s, Color color) {
-    final p = Paint()..color = color;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(pos.dx, pos.dy + 8 * s, 54 * s, 14 * s),
-        Radius.circular(10 * s),
-      ),
-      p,
-    );
-    canvas.drawCircle(Offset(pos.dx + 18 * s, pos.dy + 9 * s), 10 * s, p);
-    canvas.drawCircle(Offset(pos.dx + 33 * s, pos.dy + 7 * s), 12 * s, p);
-  }
-
-  void _drawDetailedTree(Canvas canvas, double x, double groundY, double s) {
-    final trunkColor =
-    isNight ? const Color(0xFF3E2723) : const Color(0xFF5D4037);
-    final trunkHighlight =
-    isNight ? const Color(0xFF4E342E) : const Color(0xFF8D6E63);
-    final leafDark =
-    isNight ? const Color(0xFF062E1D) : const Color(0xFF14532D);
-    final leafMid =
-    isNight ? const Color(0xFF0E4D31) : const Color(0xFF15803D);
-    final leafBright =
-    isNight ? const Color(0xFF1B7A4E) : const Color(0xFF4ADE80);
-    final twigColor =
-    isNight ? const Color(0xFF041C11) : const Color(0xFF0B3B1E);
-
-    final trunkPath = Path()
-      ..moveTo(x - 3.2 * s, groundY + 1)
-      ..quadraticBezierTo(
-          x - 1.6 * s, groundY - 14 * s, x - 1.4 * s, groundY - 26 * s)
-      ..lineTo(x - 11 * s, groundY - 37 * s)
-      ..lineTo(x - 9.5 * s, groundY - 38 * s)
-      ..lineTo(x - 0.5 * s, groundY - 28 * s)
-      ..lineTo(x - 0.3 * s, groundY - 41 * s)
-      ..lineTo(x + 1.3 * s, groundY - 41 * s)
-      ..lineTo(x + 1.2 * s, groundY - 27 * s)
-      ..lineTo(x + 11.5 * s, groundY - 36 * s)
-      ..lineTo(x + 12.5 * s, groundY - 34.5 * s)
-      ..lineTo(x + 1.8 * s, groundY - 24 * s)
-      ..quadraticBezierTo(
-          x + 1.8 * s, groundY - 13 * s, x + 3.5 * s, groundY + 1)
+    final path = Path()
+      ..moveTo(0, h)
+      ..lineTo(0, h * 0.55)
+      ..lineTo(w * 0.08, h * 0.55)
+      ..lineTo(w * 0.08, h * 0.35)
+      ..lineTo(w * 0.14, h * 0.25)
+      ..lineTo(w * 0.20, h * 0.35)
+      ..lineTo(w * 0.20, h * 0.60)
+      ..lineTo(w * 0.30, h * 0.60)
+      ..lineTo(w * 0.30, h * 0.42)
+      ..lineTo(w * 0.38, h * 0.42)
+      ..lineTo(w * 0.38, h * 0.22)
+      ..lineTo(w * 0.50, h * 0.10)
+      ..lineTo(w * 0.62, h * 0.22)
+      ..lineTo(w * 0.62, h * 0.42)
+      ..lineTo(w * 0.70, h * 0.42)
+      ..lineTo(w * 0.70, h * 0.58)
+      ..lineTo(w * 0.80, h * 0.58)
+      ..lineTo(w * 0.80, h * 0.32)
+      ..lineTo(w * 0.86, h * 0.24)
+      ..lineTo(w * 0.92, h * 0.32)
+      ..lineTo(w * 0.92, h * 0.52)
+      ..lineTo(w, h * 0.52)
+      ..lineTo(w, h)
       ..close();
-    canvas.drawPath(trunkPath, Paint()..color = trunkColor);
 
-    canvas.drawPath(
-      Path()
-        ..moveTo(x - 1.2 * s, groundY)
-        ..quadraticBezierTo(
-            x - 0.6 * s, groundY - 14 * s, x - 0.4 * s, groundY - 26 * s),
-      Paint()
-        ..color = trunkHighlight
-        ..strokeWidth = 1.0 * s
-        ..style = PaintingStyle.stroke,
-    );
-
-    Path organicCluster(
-        double cx, double cy, double rx, double ry, double seed) {
-      final p = Path();
-      const lobes = 11;
-      for (var i = 0; i <= lobes; i++) {
-        final a = (i / lobes) * math.pi * 2;
-        final wobble = 0.82 +
-            0.24 * math.sin(a * 3 + seed) +
-            0.14 * math.cos(a * 5 - seed);
-        final px = cx + math.cos(a) * rx * wobble;
-        final py = cy + math.sin(a) * ry * wobble;
-        if (i == 0) {
-          p.moveTo(px, py);
-        } else {
-          final prevA = ((i - 0.5) / lobes) * math.pi * 2;
-          final cWobble = 1.06 + 0.20 * math.sin(prevA * 4 + seed);
-          final cpx = cx + math.cos(prevA) * rx * cWobble;
-          final cpy = cy + math.sin(prevA) * ry * cWobble;
-          p.quadraticBezierTo(cpx, cpy, px, py);
-        }
-      }
-      p.close();
-      return p;
-    }
-
-    canvas.drawPath(
-      organicCluster(x - 12 * s, groundY - 37 * s, 12.5 * s, 9.5 * s, 0.4),
-      Paint()..color = leafDark,
-    );
-    canvas.drawPath(
-      organicCluster(x + 12 * s, groundY - 36 * s, 12.0 * s, 9.0 * s, 1.9),
-      Paint()..color = leafDark,
-    );
-    canvas.drawPath(
-      organicCluster(x, groundY - 40 * s, 15.0 * s, 11.5 * s, 3.1),
-      Paint()..color = leafDark,
-    );
-
-    canvas.drawPath(
-      organicCluster(x - 11 * s, groundY - 41 * s, 11.0 * s, 8.5 * s, 1.1),
-      Paint()..color = leafMid,
-    );
-    canvas.drawPath(
-      organicCluster(x + 11 * s, groundY - 40 * s, 10.5 * s, 8.0 * s, 2.6),
-      Paint()..color = leafMid,
-    );
-    canvas.drawPath(
-      organicCluster(x - 1 * s, groundY - 46 * s, 13.5 * s, 10.0 * s, 4.2),
-      Paint()..color = leafMid,
-    );
-
-    canvas.drawPath(
-      organicCluster(x - 8 * s, groundY - 47 * s, 8.5 * s, 6.2 * s, 0.8),
-      Paint()..color = leafBright,
-    );
-    canvas.drawPath(
-      organicCluster(x + 2 * s, groundY - 51 * s, 9.5 * s, 6.8 * s, 2.3),
-      Paint()..color = leafBright,
-    );
-    canvas.drawPath(
-      organicCluster(x + 10 * s, groundY - 44 * s, 7.5 * s, 5.5 * s, 3.9),
-      Paint()..color = leafBright,
-    );
-
-    final detailPaint = Paint()
-      ..color = twigColor.withValues(alpha: 0.65)
-      ..strokeWidth = 1.05 * s
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(x - 14 * s, groundY - 39 * s)
-        ..quadraticBezierTo(
-            x - 9 * s, groundY - 43 * s, x - 5 * s, groundY - 40 * s)
-        ..moveTo(x - 4 * s, groundY - 47 * s)
-        ..quadraticBezierTo(
-            x + 1 * s, groundY - 50 * s, x + 6 * s, groundY - 46 * s)
-        ..moveTo(x + 4 * s, groundY - 38 * s)
-        ..quadraticBezierTo(
-            x + 9 * s, groundY - 41 * s, x + 14 * s, groundY - 37 * s)
-        ..moveTo(x - 7 * s, groundY - 33 * s)
-        ..quadraticBezierTo(
-            x - 1 * s, groundY - 36 * s, x + 5 * s, groundY - 33 * s),
-      detailPaint,
-    );
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _FlatUnesaRektoratBannerPainter old) =>
-      old.progress != progress || old.isNight != isNight;
+  bool shouldRepaint(covariant _CampusSkylinePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class AuthScaffold extends StatelessWidget {
@@ -852,6 +219,7 @@ class AuthScaffold extends StatelessWidget {
   final String title;
   final String subtitle;
   final double maxWidth;
+  final bool showSkylineFooter;
   final List<Widget> children;
 
   const AuthScaffold({
@@ -860,21 +228,24 @@ class AuthScaffold extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.maxWidth = 480,
+    this.showSkylineFooter = false,
     required this.children,
   });
 
   @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
-    final subColor = dark ? Colors.white70 : const Color(0xFF475569);
+    final subColor = dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     final screenW = MediaQuery.of(context).size.width;
-    final titleFontSize = (screenW * 0.068).clamp(22.0, 28.0);
+    final titleFontSize = (screenW * 0.066).clamp(22.0, 27.0);
 
     return Scaffold(
       body: Column(
         children: [
-          _FlatUnesaPortalBanner(
-            height: 195,
+          CartoonHeader(
+            height: 220,
+            bottomRadius: 30,
+            showBuilding: true,
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -891,10 +262,9 @@ class AuthScaffold extends StatelessWidget {
                           icon: const Icon(Icons.arrow_back_rounded),
                           style: IconButton.styleFrom(
                             backgroundColor: dark
-                                ? const Color(0xFF1E293B)
-                                : Colors.white,
-                            foregroundColor:
-                            dark ? Colors.white : _kSlateTitle,
+                                ? const Color(0xFF111D30).withValues(alpha: 0.92)
+                                : Colors.white.withValues(alpha: 0.94),
+                            foregroundColor: dark ? Colors.white : _kNavyUnesa,
                           ),
                         ),
                       )
@@ -903,16 +273,24 @@ class AuthScaffold extends StatelessWidget {
                     Flexible(
                       child: Container(
                         margin: const EdgeInsets.only(top: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 11, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
-                          color: dark ? const Color(0xFF1E293B) : Colors.white,
+                          color: dark
+                              ? const Color(0xFF111D30).withValues(alpha: 0.92)
+                              : Colors.white.withValues(alpha: 0.95),
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(
                             color: dark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFE2E8F0),
+                                ? const Color(0xFF1E3250)
+                                : const Color(0xFFDCE6F2),
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -921,7 +299,7 @@ class AuthScaffold extends StatelessWidget {
                               width: 7,
                               height: 7,
                               decoration: const BoxDecoration(
-                                color: _kEmeraldGreen,
+                                color: _kToskaMain,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -935,7 +313,7 @@ class AuthScaffold extends StatelessWidget {
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.6,
-                                  color: dark ? Colors.white : _kSlateBadgeText,
+                                  color: dark ? Colors.white : _kNavyUnesa,
                                 ),
                               ),
                             ),
@@ -949,111 +327,138 @@ class AuthScaffold extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 36),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FadeSlideIn(
-                        index: 0,
-                        child: Column(
-                          children: [
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.85, end: 1.0),
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeOutBack,
-                              builder: (_, scale, child) =>
-                                  Transform.scale(scale: scale, child: child),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.08),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: const AppLogo(size: 60),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: dark
-                                    ? const Color(0xFF1E293B)
-                                    : Colors.white.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: dark
-                                      ? const Color(0xFF334155)
-                                      : const Color(0xFFCBD5E1),
-                                ),
-                              ),
-                              child: Text(
-                                badgeText.toUpperCase(),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                  color: dark
-                                      ? const Color(0xFFE2E8F0)
-                                      : _kSlateBadgeText,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Padding(
-                              padding:
-                              const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                title,
-                                textAlign: TextAlign.center,
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.w900,
-                                  color: dark ? Colors.white : _kSlateTitle,
-                                  letterSpacing: -0.5,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 260),
-                              child: Text(
-                                subtitle,
-                                key: ValueKey(subtitle),
-                                textAlign: TextAlign.center,
-                                softWrap: true,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: subColor,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
+            child: Stack(
+              children: [
+                if (showSkylineFooter)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 92,
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _CampusSkylinePainter(
+                          dark
+                              ? const Color(0xFF1E3250).withValues(alpha: 0.55)
+                              : const Color(0xFFCBD5E1).withValues(alpha: 0.55),
                         ),
                       ),
-                      ...children,
-                    ],
+                    ),
+                  ),
+                SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FadeSlideIn(
+                            index: 0,
+                            child: Column(
+                              children: [
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.85, end: 1.0),
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOutBack,
+                                  builder: (_, scale, child) =>
+                                      Transform.scale(scale: scale, child: child),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: dark ? const Color(0xFF111D30) : Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.08),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const AppLogo(size: 58),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4.5),
+                                  decoration: BoxDecoration(
+                                    color: dark ? const Color(0xFF132F3B) : kMintSoft,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: dark
+                                          ? const Color(0xFF22B8CF).withValues(alpha: 0.35)
+                                          : _kToskaMain.withValues(alpha: 0.25),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    badgeText.toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.0,
+                                      color: dark ? const Color(0xFF38BDF8) : _kToskaMain,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    title,
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: titleFontSize,
+                                      fontWeight: FontWeight.w800,
+                                      color: dark ? Colors.white : _kSlateTitle,
+                                      letterSpacing: -0.5,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 260),
+                                  child: Text(
+                                    subtitle,
+                                    key: ValueKey(subtitle),
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w400,
+                                      color: subColor,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                              ],
+                            ),
+                          ),
+                          ...children,
+                          if (showSkylineFooter) ...[
+                            const SizedBox(height: 26),
+                            Text(
+                              'Bersama menjaga barang,\nuntuk lingkungan kampus yang lebih aman',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: subColor,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -1077,67 +482,68 @@ class ChooseLoginScreen extends StatelessWidget {
     required Color accent,
   }) {
     final dark = isDark(context);
+    final effectiveAccent = dark
+        ? (guard ? const Color(0xFF60A5FA) : const Color(0xFF22B8CF))
+        : accent;
 
     return FadeSlideIn(
       index: index,
       child: InteractiveCard(
-        accentColor: accent,
-        onTap: () =>
-            Navigator.push(context, smoothRoute(LoginScreen(guard: guard))),
+        accentColor: effectiveAccent,
+        padding: const EdgeInsets.all(18),
+        onTap: () => Navigator.push(context, smoothRoute(LoginScreen(guard: guard))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(16),
+                    color: effectiveAccent.withValues(alpha: dark ? 0.18 : 0.12),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: effectiveAccent.withValues(alpha: 0.30),
+                    ),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 25),
+                  child: Icon(icon, color: effectiveAccent, size: 24),
                 ),
-                Flexible(
-                  child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: dark
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: dark
-                            ? const Color(0xFF334155)
-                            : const Color(0xFFCBD5E1),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        roleTag,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: effectiveAccent,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      roleTag,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: dark ? const Color(0xFFE2E8F0) : _kSlateBadgeText,
+                      const SizedBox(height: 2),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: dark ? Colors.white : _kSlateTitle,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: mutedC(context),
+                  size: 22,
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             Text(
               sub,
               softWrap: true,
@@ -1147,25 +553,15 @@ class ChooseLoginScreen extends StatelessWidget {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
+              padding: const EdgeInsets.symmetric(vertical: 11.5, horizontal: 14),
               decoration: BoxDecoration(
-                color: guard
-                    ? (dark
-                    ? const Color(0xFF134E4A)
-                    : const Color(0xFFDCFCE7))
-                    : (dark ? const Color(0xFF16A34A) : _kEmeraldGreen),
-                borderRadius: BorderRadius.circular(14),
-                border: guard
-                    ? Border.all(
-                  color: dark
-                      ? const Color(0xFF2DD4BF)
-                      : const Color(0xFF86EFAC),
-                  width: 1.3,
-                )
-                    : null,
+                color: dark
+                    ? (guard ? const Color(0xFF1E3A8A) : const Color(0xFF0E7490))
+                    : accent,
+                borderRadius: BorderRadius.circular(13),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1175,22 +571,18 @@ class ChooseLoginScreen extends StatelessWidget {
                       btnLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: guard
-                            ? (dark ? Colors.white : _kTealGreen)
-                            : Colors.white,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
+                  const Icon(
                     Icons.arrow_forward_rounded,
-                    size: 18,
-                    color: guard
-                        ? (dark ? Colors.white : _kTealGreen)
-                        : Colors.white,
+                    size: 17,
+                    color: Colors.white,
                   ),
                 ],
               ),
@@ -1206,11 +598,11 @@ class ChooseLoginScreen extends StatelessWidget {
     final isWide = MediaQuery.of(context).size.width >= 720;
 
     return AuthScaffold(
-      badgeText: 'Pusat Barang Hilang & Temuan',
-      title: 'Temukan Kembali\nBarang Berhargamu',
-      subtitle:
-      'Sistem pelaporan barang hilang & temuan mahasiswa dengan verifikasi pos satpam UNESA.',
+      badgeText: 'CampusFind UNESA',
+      title: 'Selamat Datang!',
+      subtitle: 'Pilih jenis akun untuk melanjutkan layanan pelaporan & klaim barang kampus.',
       maxWidth: isWide ? 840 : 480,
+      showSkylineFooter: true,
       children: [
         if (isWide)
           Row(
@@ -1222,12 +614,11 @@ class ChooseLoginScreen extends StatelessWidget {
                   index: 1,
                   icon: Icons.school_rounded,
                   roleTag: 'MAHASISWA UNESA',
-                  title: 'Login Mahasiswa UNESA',
-                  sub:
-                  'Khusus mahasiswa UNESA dengan email resmi @mhs.unesa.ac.id untuk melapor & mengklaim barang.',
+                  title: 'Login Mahasiswa',
+                  sub: 'Masuk dengan akun mahasiswa UNESA (@mhs.unesa.ac.id) untuk melapor & mengklaim barang.',
                   btnLabel: 'Masuk Mahasiswa UNESA',
                   guard: false,
-                  accent: _kEmeraldGreen,
+                  accent: _kToskaMain,
                 ),
               ),
               const SizedBox(width: 20),
@@ -1236,13 +627,12 @@ class ChooseLoginScreen extends StatelessWidget {
                   context: context,
                   index: 2,
                   icon: Icons.verified_user_rounded,
-                  roleTag: 'SATPAM UNESA',
-                  title: 'Login Satpam Pos UNESA',
-                  sub:
-                  'Petugas satpam pos gerbang UNESA untuk verifikasi laporan, QR Pos, dan serah terima barang.',
+                  roleTag: 'PETUGAS KEAMANAN',
+                  title: 'Login Satpam',
+                  sub: 'Masuk dengan akun petugas keamanan pos UNESA untuk verifikasi laporan & serah terima barang.',
                   btnLabel: 'Masuk sebagai Satpam',
                   guard: true,
-                  accent: _kTealGreen,
+                  accent: _kNavyUnesa,
                 ),
               ),
             ],
@@ -1253,25 +643,23 @@ class ChooseLoginScreen extends StatelessWidget {
             index: 1,
             icon: Icons.school_rounded,
             roleTag: 'MAHASISWA UNESA',
-            title: 'Login Mahasiswa UNESA',
-            sub:
-            'Khusus mahasiswa UNESA dengan email resmi @mhs.unesa.ac.id untuk melapor & mengklaim barang.',
+            title: 'Login Mahasiswa',
+            sub: 'Masuk dengan akun mahasiswa UNESA (@mhs.unesa.ac.id) untuk melapor & mengklaim barang.',
             btnLabel: 'Masuk Mahasiswa UNESA',
             guard: false,
-            accent: _kEmeraldGreen,
+            accent: _kToskaMain,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _roleCard(
             context: context,
             index: 2,
             icon: Icons.verified_user_rounded,
-            roleTag: 'SATPAM UNESA',
-            title: 'Login Satpam Pos UNESA',
-            sub:
-            'Petugas satpam pos gerbang UNESA untuk verifikasi laporan, QR Pos, dan serah terima barang.',
+            roleTag: 'PETUGAS KEAMANAN',
+            title: 'Login Satpam',
+            sub: 'Masuk dengan akun petugas keamanan pos UNESA untuk verifikasi laporan & serah terima barang.',
             btnLabel: 'Masuk sebagai Satpam',
             guard: true,
-            accent: _kTealGreen,
+            accent: _kNavyUnesa,
           ),
         ],
       ],
@@ -1295,6 +683,23 @@ class _LoginScreenState extends State<LoginScreen> {
   String? pos;
 
   static const _defaultGuardPassword = 'satpam123';
+
+  bool get _isAdminEmailInput => idC.text.trim().contains('@');
+
+  @override
+  void initState() {
+    super.initState();
+    idC.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    idC.dispose();
+    passC.dispose();
+    super.dispose();
+  }
 
   void _showError(String msg) {
     if (!mounted) return;
@@ -1442,11 +847,68 @@ class _LoginScreenState extends State<LoginScreen> {
         final rawId = idC.text.trim();
         final inputPass = passC.text.trim();
 
+        // 1. Jika input berupa Email (misal: admin@unesa.ac.id) -> Cek login Admin
         if (rawId.contains('@')) {
-          _showError('Akses ditolak! Email Mahasiswa/Admin tidak dapat masuk ke Portal Satpam.');
-          return;
+          final emailInput = rawId.toLowerCase();
+          try {
+            final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: emailInput,
+              password: inputPass,
+            );
+            final user = cred.user;
+            if (user == null) return;
+
+            final doc = await db.collection('users').doc(user.uid).get();
+            final data = doc.data();
+            final role = (data?['role'] as String?) ??
+                (emailInput == 'admin@unesa.ac.id' ? 'admin' : 'student');
+
+            if (role != 'admin') {
+              await FirebaseAuth.instance.signOut();
+              _showError('Akses ditolak! Hanya akun Admin Supervisor atau ID Satpam yang dapat masuk.');
+              return;
+            }
+
+            final displayName =
+            (data?['name'] as String?)?.trim().isNotEmpty == true
+                ? data!['name'].toString().trim()
+                : 'Admin Supervisor';
+
+            await prefs.remove('guard_logged_in');
+            await prefs.remove('guard_id');
+            await prefs.remove('guard_pos');
+            await prefs.setString('user_role', 'admin');
+
+            store.guard = false;
+            store.email = emailInput;
+            await store.login(
+              uid: user.uid,
+              name: displayName,
+              email: emailInput,
+              role: 'admin',
+            );
+            await store.load();
+
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              smoothRoute(AdminDashboardScreen(adminEmail: emailInput)),
+                  (r) => false,
+            );
+            return;
+          } on FirebaseAuthException catch (e) {
+            _showError(
+              e.code == 'invalid-credential' ||
+                  e.code == 'wrong-password' ||
+                  e.code == 'user-not-found'
+                  ? 'Email atau password admin salah.'
+                  : 'Gagal masuk admin: ${e.message ?? e.code}',
+            );
+            return;
+          }
         }
 
+        // 2. Jika input berupa ID Petugas Satpam (misal: SATPAM01) -> Cek login Satpam
         final guardId = rawId.toUpperCase();
         final officerDoc = await db.collection('satpam_officers').doc(guardId).get();
 
@@ -1508,16 +970,52 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _benefitRow(BuildContext context, IconData icon, String text) {
+    final dark = isDark(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF132F3B) : kMintSoft,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 15,
+              color: dark ? const Color(0xFF38BDF8) : _kToskaMain,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final g = widget.guard;
     final dark = isDark(context);
+    final availablePos = store.availablePosList;
 
     if (!g) {
       return AuthScaffold(
         badgeText: 'Autentikasi Mahasiswa',
-        title: 'Login Mahasiswa UNESA',
-        subtitle: 'Akses khusus mahasiswa UNESA menggunakan akun Google resmi (@mhs.unesa.ac.id).',
+        title: 'Login Mahasiswa',
+        subtitle: 'Masuk dengan akun Google resmi mahasiswa UNESA (@mhs.unesa.ac.id).',
         maxWidth: 460,
         children: [
           FadeSlideIn(
@@ -1540,49 +1038,48 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: dark
-                          ? const Color(0xFF1E293B).withValues(alpha: 0.65)
-                          : const Color(0xFFF8FAFC),
+                      color: dark ? const Color(0xFF132F3B) : kMintSoft,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: dark
-                            ? const Color(0xFF334155)
-                            : const Color(0xFFE2E8F0),
+                            ? const Color(0xFF22B8CF).withValues(alpha: 0.30)
+                            : _kToskaMain.withValues(alpha: 0.22),
                       ),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: const BoxDecoration(
-                            color: _kSlateBadgeText,
-                            shape: BoxShape.circle,
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: dark ? const Color(0xFF0E7490) : _kToskaMain,
+                            borderRadius: BorderRadius.circular(13),
                           ),
-                          child: const Icon(Icons.school_rounded,
-                              color: Colors.white, size: 24),
+                          child: const Icon(Icons.alternate_email_rounded,
+                              color: Colors.white, size: 22),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Akun Mahasiswa UNESA',
+                                'Email Kampus Resmi',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 14,
+                                  fontSize: 13.5,
                                   color: dark ? Colors.white : _kSlateTitle,
                                 ),
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 2),
                               Text(
-                                'Gunakan email SSO Google mahasiswa (@mhs.unesa.ac.id).',
+                                'nama.nim@mhs.unesa.ac.id',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: mutedC(context),
-                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                  color: dark ? const Color(0xFF38BDF8) : _kToskaMain,
                                 ),
                               ),
                             ],
@@ -1591,7 +1088,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  _benefitRow(context, Icons.edit_note_rounded,
+                      'Buat laporan barang hilang & temuan dengan cepat'),
+                  _benefitRow(context, Icons.auto_awesome_rounded,
+                      'Notifikasi otomatis jika barang yang cocok ditemukan'),
+                  _benefitRow(context, Icons.qr_code_scanner_rounded,
+                      'Verifikasi & klaim aman melalui QR Pos Satpam'),
+                  const SizedBox(height: 14),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 240),
                     child: loading
@@ -1599,26 +1103,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: ValueKey('loading'),
                       padding: EdgeInsets.symmetric(vertical: 10),
                       child: Center(
-                          child: CircularProgressIndicator(
-                              color: _kEmeraldGreen)),
+                          child: CircularProgressIndicator(color: _kToskaMain)),
                     )
                         : SizedBox(
                       key: const ValueKey('btn_google_login'),
-                      height: 48,
+                      height: 50,
                       child: ElevatedButton.icon(
                         onPressed: _signInWithGoogle,
-                        icon: const Icon(Icons.login_rounded, size: 19),
+                        icon: const Icon(Icons.login_rounded, size: 20),
                         label: const Text(
-                          'Masuk dengan Google',
+                          'Pilih Akun Google UNESA',
                           style: TextStyle(
                             fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: dark
-                              ? const Color(0xFF16A34A)
-                              : _kEmeraldGreen,
+                          backgroundColor:
+                          dark ? const Color(0xFF0E7490) : _kToskaMain,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -1627,6 +1129,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.verified_user_outlined,
+                          size: 14, color: mutedC(context)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Terhubung otomatis dengan identitas mahasiswa UNESA',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: mutedC(context),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1638,8 +1159,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return AuthScaffold(
       badgeText: 'Akses Satpam UNESA',
-      title: 'Portal Satpam Pos UNESA',
-      subtitle: 'Masukkan ID Petugas resmi, password petugas, dan pilih lokasi pos penjagaan Anda.',
+      title: 'Login Satpam',
+      subtitle: 'Masukkan ID Petugas resmi, password petugas, dan pilih lokasi pos penjagaan.',
       maxWidth: 460,
       children: [
         FadeSlideIn(
@@ -1664,22 +1185,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppField(
-                    'ID Petugas Resmi',
+                    'Username / ID Petugas',
                     'Contoh: SATPAM01',
                     controller: idC,
                     icon: Icons.badge_outlined,
-                    keyboard: TextInputType.text,
-                    helper: 'ID Petugas diterbitkan oleh Admin Supervisor (bukan email mahasiswa)',
+                    keyboard: TextInputType.emailAddress,
+                    helper: 'ID Petugas diterbitkan oleh Admin Supervisor',
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-                      if (v.trim().contains('@')) {
-                        return 'Gunakan ID Petugas resmi, bukan email mahasiswa';
-                      }
                       return null;
                     },
                   ),
-                  const Text('Password Petugas',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Text('Password',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: passC,
@@ -1690,21 +1208,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       hintStyle: const TextStyle(fontSize: 13),
                       prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
                       suffixIcon: IconButton(
-                        icon: Icon(hide ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18),
+                        icon: Icon(
+                            hide ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 18),
                         onPressed: () => setState(() => hide = !hide),
                       ),
                     ),
                   ),
+                  if (!_isAdminEmailInput) ...[
+                    const SizedBox(height: 14),
+                    AppDropdown(
+                      'Bertugas di Pos',
+                      'Pilih pos satpam',
+                      availablePos,
+                      availablePos.contains(pos) ? pos : null,
+                          (v) => setState(() => pos = v),
+                      isRequired: true,
+                    ),
+                  ],
                   const SizedBox(height: 14),
-                  AppDropdown(
-                    'Bertugas di',
-                    'Pilih pos satpam',
-                    posList,
-                    pos,
-                        (v) => setState(() => pos = v),
-                    isRequired: true,
-                  ),
-                  const SizedBox(height: 10),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 240),
                     child: loading
@@ -1712,28 +1234,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: ValueKey('loading'),
                       padding: EdgeInsets.symmetric(vertical: 10),
                       child: Center(
-                          child: CircularProgressIndicator(
-                              color: _kTealGreen)),
+                          child: CircularProgressIndicator(color: _kNavyUnesa)),
                     )
                         : SizedBox(
                       key: const ValueKey('btn_satpam_login'),
                       width: double.infinity,
-                      height: 48,
+                      height: 50,
                       child: ElevatedButton.icon(
                         onPressed: _login,
-                        icon: const Icon(Icons.verified_user_rounded,
-                            size: 19),
+                        icon: const Icon(Icons.verified_user_rounded, size: 19),
                         label: const Text(
-                          'Masuk ke Pos',
+                          'Masuk',
                           style: TextStyle(
                             fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: dark
-                              ? const Color(0xFF0D9488)
-                              : _kTealGreen,
+                          backgroundColor:
+                          dark ? const Color(0xFF1E3A8A) : _kNavyUnesa,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -1742,6 +1261,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 14, color: mutedC(context)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Hanya untuk petugas keamanan UNESA yang terotorisasi',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: mutedC(context),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1753,7 +1289,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// ------------------------------------------------------------- tutorial
 class TutorialScreen extends StatefulWidget {
   final bool fromProfile;
   const TutorialScreen({super.key, this.fromProfile = false});
@@ -1767,7 +1302,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   static const studentPages = [
     (Icons.mark_email_read_rounded, 'Masuk dengan Email Mahasiswa', 'Login memakai email resmi mahasiswa UNESA (@mhs.unesa.ac.id) untuk menggunakan aplikasi.'),
-    (Icons.edit_note_rounded, 'Buat Laporan', 'Di menu Laporan pilih Lapor Kehilangan atau Lapor Barang Ditemukan. Upload foto barang, AI akan mengenali nama, jenis, warna, dan ciri-ciri. Lalu pilih pos satpam (Gerbang Depan / Belakang).'),
+    (Icons.edit_note_rounded, 'Buat Laporan', 'Di menu Laporan pilih Lapor Kehilangan atau Lapor Barang Ditemukan. Upload foto barang, AI akan mengenali nama, jenis, warna, dan ciri-ciri. Lalu pilih pos satpam.'),
     (Icons.qr_code_2_rounded, 'Verifikasi QR Satpam', 'Buka laporan yang tersimpan kapan saja untuk memindai QR pos satpam. Setelah disetujui, laporanmu tampil di Beranda.'),
     (Icons.auto_awesome_rounded, 'Notifikasi Pencocokan', 'Setelah laporan hilangmu disetujui, sistem mencocokkan otomatis dengan barang temuan. Notifikasi berbunyi dan menampilkan barang yang paling mirip beserta persentase kecocokan.'),
     (Icons.verified_rounded, 'Klaim Barang', 'Buka barang temuan di Beranda atau Cari, lalu Ajukan Klaim dan sebutkan detail rahasianya. Pindai QR pos satpam saat verifikasi. Jika cocok dan disetujui, barang diserahkan kepadamu.'),
@@ -1777,7 +1312,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
     (Icons.dashboard_customize_rounded, 'Menu Beranda Satpam', 'Di menu Beranda, pantau antrean verifikasi laporan barang masuk dan daftar klaim mahasiswa yang menunggu tindakan di pos jaga Anda.'),
     (Icons.qr_code_scanner_rounded, 'QR Barcode Pos Satpam', 'Gunakan menu QR Pos untuk menampilkan kode QR dinamis pos jaga agar dipindai mahasiswa saat menyerahkan barang temuan atau mengambil barang klaim.'),
     (Icons.fact_check_rounded, 'Verifikasi Detail Rahasia', 'Saat meninjau klaim, aplikasi menampilkan kotak perbandingan antara ciri barang pada laporan dengan jawaban pengklaim secara berdampingan.'),
-    (Icons.task_alt_rounded, 'Keputusan & Serah Terima', 'Tekan tombol hijau "Setujui Klaim & Serahkan Barang" jika data cocok, atau tombol bergaris "Tolak Klaim" jika data tidak sesuai.'),
+    (Icons.task_alt_rounded, 'Keputusan & Serah Terima', 'Tekan tombol "Setujui Klaim & Serahkan Barang" jika data cocok, atau tombol "Tolak Klaim" jika data tidak sesuai.'),
     (Icons.filter_list_rounded, 'Filter di Menu Laporan', 'Buka menu Laporan untuk melihat seluruh arsip. Gunakan chip filter status dan filter pos di bagian atas untuk menyortir data.'),
   ];
 
@@ -1841,11 +1376,11 @@ class _TutorialScreenState extends State<TutorialScreen> {
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           CircleAvatar(
                             radius: 54,
-                            backgroundColor: _kSlateBadgeText.withValues(alpha: 0.10),
+                            backgroundColor: (dark ? const Color(0xFF22B8CF) : _kToskaMain).withValues(alpha: 0.12),
                             child: Icon(
                               pages[i].$1,
                               size: 54,
-                              color: dark ? const Color(0xFFE2E8F0) : _kSlateBadgeText,
+                              color: dark ? const Color(0xFF38BDF8) : _kToskaMain,
                             ),
                           ),
                           const SizedBox(height: 28),
@@ -1867,7 +1402,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
                       height: 8,
                       decoration: BoxDecoration(
                         color: i == page
-                            ? (dark ? const Color(0xFFE2E8F0) : _kSlateBadgeText)
+                            ? (dark ? const Color(0xFF22B8CF) : _kToskaMain)
                             : borderC(context),
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -1889,8 +1424,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        dark ? const Color(0xFF16A34A) : _kEmeraldGreen,
+                        backgroundColor: dark ? const Color(0xFF0E7490) : _kToskaMain,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -1899,13 +1433,11 @@ class _TutorialScreenState extends State<TutorialScreen> {
                       ),
                       child: Text(
                         last
-                            ? (widget.fromProfile
-                            ? 'Selesai'
-                            : 'Mulai Gunakan')
+                            ? (widget.fromProfile ? 'Selesai' : 'Mulai Gunakan')
                             : 'Lanjut',
                         style: const TextStyle(
                           fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),

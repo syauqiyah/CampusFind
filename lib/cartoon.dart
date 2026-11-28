@@ -7,8 +7,8 @@ import 'widgets.dart';
 // ------------------------------------------------------------------ deteksi waktu & lintasan matahari/bulan (Timur -> Barat)
 class _TimeAtmosphere {
   final double nightFactor; // 0.0 = siang terang, 1.0 = malam penuh
-  final double dawnFactor;  // 0.0 - 1.0 nuansa pagi
-  final double duskFactor;  // 0.0 - 1.0 nuansa sore/senja
+  final double dawnFactor; // 0.0 - 1.0 nuansa pagi
+  final double duskFactor; // 0.0 - 1.0 nuansa sore/senja
   final double sunProgress; // 0.0 (terbit Timur) -> 0.5 (puncak) -> 1.0 (tenggelam Barat)
   final double moonProgress; // 0.0 (terbit Timur) -> 0.5 (tengah malam) -> 1.0 (tenggelam Barat)
 
@@ -142,7 +142,7 @@ class CampusPainter extends CustomPainter {
 
 // ------------------------------------------------------------------ header bangunan kartun 3D UNESA
 class CartoonHeader extends StatefulWidget {
-  final double height, bx, bs, groundY, sunX;
+  final double height, bx, bs, groundY, sunX, bottomRadius;
   final Widget? child;
   final bool showBuilding; // false = langit, awan, rumput & pohon saja (tanpa gedung)
 
@@ -153,6 +153,7 @@ class CartoonHeader extends StatefulWidget {
     this.bs = .52,
     this.groundY = .80,
     this.sunX = .82,
+    this.bottomRadius = 30.0,
     this.showBuilding = true,
     this.child,
   });
@@ -234,9 +235,9 @@ class _CartoonHeaderState extends State<CartoonHeader>
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(30),
-        bottomRight: Radius.circular(30),
+      borderRadius: BorderRadius.only(
+        bottomLeft: Radius.circular(widget.bottomRadius),
+        bottomRight: Radius.circular(widget.bottomRadius),
       ),
       child: SizedBox(
         height: widget.height,
@@ -305,9 +306,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     _lerp(c1[2].toDouble(), c2[2].toDouble(), t).round(),
   );
 
-  /// Menghitung koordinat busur langit alami dari Timur (kanan) ke Barat (kiri)
-  /// dan memastikan batas clamp selalu aman pada ukuran tinggi apa pun.
-  Offset _celestialArcPosition(double progress, double w, double h, double baseY) {
+  Offset _celestialArcPosition(
+      double progress, double w, double h, double baseY) {
     final p = progress.clamp(0.0, 1.0);
     final x = _lerp(w * 0.90, w * 0.10, p);
 
@@ -375,7 +375,7 @@ class _CampusAtmospherePainter extends CustomPainter {
       }
     }
 
-    // 3. MATAHARI (TERBIT TIMUR -> TENGGELAM BARAT) & BULAN PURNAMA (TERBIT TIMUR -> TENGGELAM BARAT)
+    // 3. MATAHARI & BULAN PURNAMA
     final celestialScale = (h / 260.0).clamp(0.72, 1.05);
 
     if (n < 0.88) {
@@ -419,7 +419,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     }
 
     if (n > 0.12) {
-      final moonPos = _celestialArcPosition(atmosphere.moonProgress, w, h, baseY);
+      final moonPos =
+      _celestialArcPosition(atmosphere.moonProgress, w, h, baseY);
       final moonAlpha = ((n - 0.12) / 0.88).clamp(0.0, 1.0);
       final moonHaloR = 54.0 * celestialScale;
       final moonR = 13.5 * celestialScale;
@@ -451,9 +452,18 @@ class _CampusAtmospherePainter extends CustomPainter {
       );
       final mariaPaint = Paint()
         ..color = const Color(0xFFE2DAAC).withValues(alpha: 0.38 * moonAlpha);
-      canvas.drawCircle(Offset(-4.0 * celestialScale, -3.0 * celestialScale), 3.0 * celestialScale, mariaPaint);
-      canvas.drawCircle(Offset(4.5 * celestialScale, 2.5 * celestialScale), 2.3 * celestialScale, mariaPaint);
-      canvas.drawCircle(Offset(-1.9 * celestialScale, 5.0 * celestialScale), 1.7 * celestialScale, mariaPaint);
+      canvas.drawCircle(
+          Offset(-4.0 * celestialScale, -3.0 * celestialScale),
+          3.0 * celestialScale,
+          mariaPaint);
+      canvas.drawCircle(
+          Offset(4.5 * celestialScale, 2.5 * celestialScale),
+          2.3 * celestialScale,
+          mariaPaint);
+      canvas.drawCircle(
+          Offset(-1.9 * celestialScale, 5.0 * celestialScale),
+          1.7 * celestialScale,
+          mariaPaint);
       canvas.restore();
     }
 
@@ -467,12 +477,14 @@ class _CampusAtmospherePainter extends CustomPainter {
     for (final c in clouds) {
       final span = w + 150.0;
       final cx = ((c.x + time * c.speed + 75.0) % span) - 75.0;
-      _drawSoftCloud(canvas, cx, c.y, c.scale, c.alpha * (1.0 - n * 0.62), n, dusk);
+      _drawSoftCloud(
+          canvas, cx, c.y, c.scale, c.alpha * (1.0 - n * 0.62), n, dusk);
     }
 
     if (n < 0.55) {
       final birdPaint = Paint()
-        ..color = const Color(0xFF1E3A5F).withValues(alpha: (1.0 - n * 1.6) * 0.55)
+        ..color =
+        const Color(0xFF1E3A5F).withValues(alpha: (1.0 - n * 1.6) * 0.55)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round;
@@ -488,7 +500,8 @@ class _CampusAtmospherePainter extends CustomPainter {
         final path = Path()
           ..moveTo(bx - 5 * b.s, b.y + flap)
           ..quadraticBezierTo(bx - 2.2 * b.s, b.y - 2.5 * b.s, bx, b.y)
-          ..quadraticBezierTo(bx + 2.2 * b.s, b.y - 2.5 * b.s, bx + 5 * b.s, b.y + flap);
+          ..quadraticBezierTo(
+              bx + 2.2 * b.s, b.y - 2.5 * b.s, bx + 5 * b.s, b.y + flap);
         canvas.drawPath(path, birdPaint);
       }
     }
@@ -497,7 +510,9 @@ class _CampusAtmospherePainter extends CustomPainter {
     _drawDistantHorizon(canvas, w, baseY, n);
 
     // 6. GEDUNG REKTORAT UNESA LIDAH WETAN (3D PERSPEKTIF & BAYANGAN)
-    if (showBuilding) _drawUnesaRectorateBuilding(canvas, w * 0.5, baseY, w, h, n);
+    if (showBuilding) {
+      _drawUnesaRectorateBuilding(canvas, w * 0.5, baseY, w, h, n);
+    }
 
     // 7. HAMPARAN LAPANGAN RUMPUT & JALAN SETAPAK PAVING
     final lawnPaint = Paint()
@@ -516,7 +531,6 @@ class _CampusAtmospherePainter extends CustomPainter {
     _drawLawnTexture(canvas, w, h, baseY, n);
 
     if (showBuilding) {
-      // Bayangan jatuh gedung rektorat di atas lapangan rumput
       final bShadowPaint = Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
@@ -536,7 +550,6 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..close();
       canvas.drawPath(bShadowPath, bShadowPaint);
 
-      // Jalur setapak paving perspektif di tengah
       final pathPaint = Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
@@ -554,7 +567,6 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..close();
       canvas.drawPath(walkPath, pathPaint);
 
-      // Kanstin paving kiri & kanan
       canvas.drawLine(
         Offset(w * 0.5 - 16, baseY),
         Offset(w * 0.5 - 36, h),
@@ -576,7 +588,8 @@ class _CampusAtmospherePainter extends CustomPainter {
       for (double py = baseY + 6; py < h; py += 8) {
         final ratio = (py - baseY) / max(1.0, h - baseY);
         final halfW = 16.0 + ratio * 20.0;
-        canvas.drawLine(Offset(w * 0.5 - halfW, py), Offset(w * 0.5 + halfW, py), jointPaint);
+        canvas.drawLine(Offset(w * 0.5 - halfW, py),
+            Offset(w * 0.5 + halfW, py), jointPaint);
       }
     }
 
@@ -595,7 +608,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     ];
     for (final t in trees) {
       final tx = (t.x / 430.0) * w;
-      _drawOrganicTree(canvas, tx, t.y, t.trunkH, t.s, t.phase, treeCrowns[t.idx], n);
+      _drawOrganicTree(
+          canvas, tx, t.y, t.trunkH, t.s, t.phase, treeCrowns[t.idx], n);
     }
 
     // 10. KUNANG-KUNANG MALAM
@@ -604,18 +618,23 @@ class _CampusAtmospherePainter extends CustomPainter {
         final phase = i * 1.1;
         final speed = 0.6 + (i % 4) * 0.15;
         final glow = 0.35 + 0.65 * sin(time * 3.1 + phase);
-        final fx = (((i * 67) % 100) / 100.0) * w + sin(time * speed + phase) * 8;
-        final fy = (0.78 + ((i * 29) % 18) / 100.0) * h + cos(time * speed + phase) * 4;
+        final fx =
+            (((i * 67) % 100) / 100.0) * w + sin(time * speed + phase) * 8;
+        final fy = (0.78 + ((i * 29) % 18) / 100.0) * h +
+            cos(time * speed + phase) * 4;
         canvas.drawCircle(
           Offset(fx, fy),
           1.8,
-          Paint()..color = const Color(0xFFFDE047).withValues(alpha: n * glow * 0.85),
+          Paint()
+            ..color =
+            const Color(0xFFFDE047).withValues(alpha: n * glow * 0.85),
         );
       }
     }
   }
 
-  void _drawLawnTexture(Canvas canvas, double w, double h, double topY, double n) {
+  void _drawLawnTexture(
+      Canvas canvas, double w, double h, double topY, double n) {
     for (int row = 0; row < 5; row++) {
       final yPos = topY + 5 + row * 9;
       if (yPos > h) break;
@@ -623,12 +642,16 @@ class _CampusAtmospherePainter extends CustomPainter {
       final p = Paint()
         ..color = row % 2 == 0
             ? const Color(0xFFDCFCE7).withValues(alpha: alpha)
-            : const Color(0xFF0F3E22).withValues(alpha: (alpha * 1.4).clamp(0.0, 1.0));
+            : const Color(0xFF0F3E22)
+            .withValues(alpha: (alpha * 1.4).clamp(0.0, 1.0));
       canvas.save();
       canvas.translate(w * 0.22, yPos);
       canvas.rotate(-0.02);
       canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: (68 + row * 12) * 2, height: (2.4 + row * 0.4) * 2),
+        Rect.fromCenter(
+            center: Offset.zero,
+            width: (68 + row * 12) * 2,
+            height: (2.4 + row * 0.4) * 2),
         p,
       );
       canvas.restore();
@@ -637,7 +660,10 @@ class _CampusAtmospherePainter extends CustomPainter {
       canvas.translate(w * 0.78, yPos + 2);
       canvas.rotate(0.02);
       canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: (68 + row * 12) * 2, height: (2.4 + row * 0.4) * 2),
+        Rect.fromCenter(
+            center: Offset.zero,
+            width: (68 + row * 12) * 2,
+            height: (2.4 + row * 0.4) * 2),
         p,
       );
       canvas.restore();
@@ -663,16 +689,17 @@ class _CampusAtmospherePainter extends CustomPainter {
 
       final path = Path()
         ..moveTo(gx, gy)
-        ..quadraticBezierTo(gx + wind * 0.5, gy - bh * 0.6, gx - 1.1 * depthScale + wind, gy - bh)
+        ..quadraticBezierTo(gx + wind * 0.5, gy - bh * 0.6,
+            gx - 1.1 * depthScale + wind, gy - bh)
         ..moveTo(gx + 1.2 * depthScale, gy)
-        ..quadraticBezierTo(
-            gx + 1.2 * depthScale + wind * 0.6, gy - bh * 0.55, gx + 2.2 * depthScale + wind, gy - bh * 0.88);
+        ..quadraticBezierTo(gx + 1.2 * depthScale + wind * 0.6, gy - bh * 0.55,
+            gx + 2.2 * depthScale + wind, gy - bh * 0.88);
       canvas.drawPath(path, paint);
     }
   }
 
-  void _drawSoftCloud(
-      Canvas canvas, double x, double y, double scale, double alpha, double n, double dusk) {
+  void _drawSoftCloud(Canvas canvas, double x, double y, double scale,
+      double alpha, double n, double dusk) {
     if (alpha <= 0.02) return;
     canvas.save();
     canvas.translate(x, y);
@@ -689,7 +716,8 @@ class _CampusAtmospherePainter extends CustomPainter {
 
     final underPath = Path();
     for (final p in puffs) {
-      underPath.addOval(Rect.fromCircle(center: Offset(p.dx, p.dy + 3.5), radius: p.r));
+      underPath
+          .addOval(Rect.fromCircle(center: Offset(p.dx, p.dy + 3.5), radius: p.r));
     }
     canvas.drawPath(
       underPath,
@@ -726,8 +754,10 @@ class _CampusAtmospherePainter extends CustomPainter {
 
     if (n < 0.6) {
       final rimPath = Path()
-        ..addArc(Rect.fromCircle(center: const Offset(10, -9), radius: 17), pi * 1.1, pi * 0.85)
-        ..addArc(Rect.fromCircle(center: const Offset(27, -3), radius: 13), pi * 1.15, pi * 0.80);
+        ..addArc(Rect.fromCircle(center: const Offset(10, -9), radius: 17),
+            pi * 1.1, pi * 0.85)
+        ..addArc(Rect.fromCircle(center: const Offset(27, -3), radius: 13),
+            pi * 1.15, pi * 0.80);
       canvas.drawPath(
         rimPath,
         Paint()..color = Colors.white.withValues(alpha: alpha * (1 - n) * 0.55),
@@ -772,8 +802,10 @@ class _CampusAtmospherePainter extends CustomPainter {
     final terracottaShade = _lerpRGB([148, 54, 34], [74, 30, 24], n);
 
     // --- A. SAYAP ATRIUM PENGHUBUNG ---
-    canvas.drawRect(const Rect.fromLTWH(-108, -82, 216, 82), Paint()..color = wallDeepRecess);
-    canvas.drawRect(const Rect.fromLTWH(-108, -82, 216, 9), Paint()..color = const Color(0x61081226));
+    canvas.drawRect(const Rect.fromLTWH(-108, -82, 216, 82),
+        Paint()..color = wallDeepRecess);
+    canvas.drawRect(const Rect.fromLTWH(-108, -82, 216, 9),
+        Paint()..color = const Color(0x61081226));
     final atriumWinPaint = Paint()
       ..color = n > 0.4 ? const Color(0x94FDE082) : glassDeep;
     for (double wx = -98; wx <= 86; wx += 14) {
@@ -793,11 +825,13 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..lineTo(186, 0)
         ..lineTo(176, 0)
         ..close();
-      canvas.drawPath(sidePath, Paint()..color = dir == 1 ? wallSunlit : wallShadow);
+      canvas.drawPath(
+          sidePath, Paint()..color = dir == 1 ? wallSunlit : wallShadow);
 
+      canvas.drawRect(const Rect.fromLTWH(64, -92, 112, 92),
+          Paint()..color = dir == 1 ? wallSunlit : wallWhite);
       canvas.drawRect(
-          const Rect.fromLTWH(64, -92, 112, 92), Paint()..color = dir == 1 ? wallSunlit : wallWhite);
-      canvas.drawRect(const Rect.fromLTWH(64, -92, 16, 92), Paint()..color = wallShadow);
+          const Rect.fromLTWH(64, -92, 16, 92), Paint()..color = wallShadow);
 
       final crownPaint = Paint()
         ..shader = LinearGradient(
@@ -811,7 +845,8 @@ class _CampusAtmospherePainter extends CustomPainter {
       final mullionPaint = Paint()
         ..color = Colors.white.withValues(alpha: 0.36)
         ..strokeWidth = 0.85;
-      canvas.drawLine(const Offset(64, -80), const Offset(176, -80), mullionPaint);
+      canvas.drawLine(
+          const Offset(64, -80), const Offset(176, -80), mullionPaint);
       for (double gx = 78; gx < 176; gx += 14) {
         canvas.drawLine(Offset(gx, -92), Offset(gx, -68), mullionPaint);
       }
@@ -836,7 +871,9 @@ class _CampusAtmospherePainter extends CustomPainter {
       canvas.save();
       canvas.clipPath(wingRoofPath);
       final tileLinePaint = Paint()
-        ..color = n < 0.5 ? Colors.white.withValues(alpha: 0.14) : const Color(0x1F94A3B8)
+        ..color = n < 0.5
+            ? Colors.white.withValues(alpha: 0.14)
+            : const Color(0x1F94A3B8)
         ..strokeWidth = 0.7;
       for (double ry = -103; ry <= -88; ry += 2.6) {
         canvas.drawLine(Offset(60, ry), Offset(188, ry + 3.5), tileLinePaint);
@@ -847,13 +884,16 @@ class _CampusAtmospherePainter extends CustomPainter {
         const Offset(120, -105),
         const Offset(176, -92),
         Paint()
-          ..color = dir == 1 ? const Color(0x6BFFF4E6) : Colors.white.withValues(alpha: 0.18)
+          ..color = dir == 1
+              ? const Color(0x6BFFF4E6)
+              : Colors.white.withValues(alpha: 0.18)
           ..strokeWidth = 1.1,
       );
-      canvas.drawRect(
-          const Rect.fromLTWH(61, -93.2, 115, 1.8), Paint()..color = dir == 1 ? wallSunlit : wallWhite);
+      canvas.drawRect(const Rect.fromLTWH(61, -93.2, 115, 1.8),
+          Paint()..color = dir == 1 ? wallSunlit : wallWhite);
 
-      canvas.drawRect(const Rect.fromLTWH(82, -64, 84, 56), Paint()..color = glassDeep);
+      canvas.drawRect(
+          const Rect.fromLTWH(82, -64, 84, 56), Paint()..color = glassDeep);
       if (n > 0.35) {
         canvas.drawRect(
           const Rect.fromLTWH(86, -58, 76, 44),
@@ -884,13 +924,18 @@ class _CampusAtmospherePainter extends CustomPainter {
             ],
           ).createShader(Rect.fromLTWH(px, -68, 7, 68));
         canvas.drawRect(Rect.fromLTWH(px, -68, 7, 68), pPaint);
-        canvas.drawRect(Rect.fromLTWH(px - 1, -68, 9, 3), Paint()..color = wallSunlit);
-        canvas.drawRect(Rect.fromLTWH(px - 1, -3, 9, 3), Paint()..color = wallSunlit);
+        canvas.drawRect(
+            Rect.fromLTWH(px - 1, -68, 9, 3), Paint()..color = wallSunlit);
+        canvas.drawRect(
+            Rect.fromLTWH(px - 1, -3, 9, 3), Paint()..color = wallSunlit);
       }
 
-      canvas.drawRect(const Rect.fromLTWH(104, -22, 34, 22), Paint()..color = wallWhite);
-      canvas.drawRect(const Rect.fromLTWH(104, -20.5, 34, 4.5), Paint()..color = const Color(0x6B081226));
-      canvas.drawRect(const Rect.fromLTWH(101, -24.5, 40, 4), Paint()..color = wallSunlit);
+      canvas.drawRect(
+          const Rect.fromLTWH(104, -22, 34, 22), Paint()..color = wallWhite);
+      canvas.drawRect(const Rect.fromLTWH(104, -20.5, 34, 4.5),
+          Paint()..color = const Color(0x6B081226));
+      canvas.drawRect(
+          const Rect.fromLTWH(101, -24.5, 40, 4), Paint()..color = wallSunlit);
 
       canvas.restore();
     }
@@ -956,7 +1001,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     canvas.save();
     canvas.clipPath(fullRoofClip);
     final hShingle = Paint()
-      ..color = n < 0.5 ? const Color(0x29FFF8F0) : const Color(0x2494A3B8)
+      ..color =
+      n < 0.5 ? const Color(0x29FFF8F0) : const Color(0x2494A3B8)
       ..strokeWidth = 0.75;
     for (double ty = -174; ty <= -160; ty += 2.5) {
       canvas.drawLine(Offset(-64, ty), Offset(62, ty), hShingle);
@@ -982,9 +1028,11 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..color = _lerpRGB([226, 232, 240], [148, 163, 184], n)
         ..strokeWidth = 1.3,
     );
-    canvas.drawCircle(const Offset(0, -182.5), 1.4, Paint()..color = const Color(0xFFF59E0B));
+    canvas.drawCircle(
+        const Offset(0, -182.5), 1.4, Paint()..color = const Color(0xFFF59E0B));
 
-    canvas.drawRect(const Rect.fromLTWH(-56, -161.2, 117, 2.2), Paint()..color = wallSunlit);
+    canvas.drawRect(
+        const Rect.fromLTWH(-56, -161.2, 117, 2.2), Paint()..color = wallSunlit);
     canvas.drawRect(
       const Rect.fromLTWH(-55, -160, 110, 160),
       Paint()
@@ -1004,17 +1052,25 @@ class _CampusAtmospherePainter extends CustomPainter {
         ).createShader(const Rect.fromLTWH(-55, -160, 110, 12)),
     );
 
-    canvas.drawRect(const Rect.fromLTWH(-55, -160, 14, 160), Paint()..color = wallShadow);
-    canvas.drawRect(const Rect.fromLTWH(-41, -160, 2.5, 160), Paint()..color = wallDeepRecess);
-    canvas.drawRect(const Rect.fromLTWH(41, -160, 14, 160), Paint()..color = wallSunlit);
-    canvas.drawRect(const Rect.fromLTWH(39, -160, 2.2, 160), Paint()..color = wallShadow);
+    canvas.drawRect(
+        const Rect.fromLTWH(-55, -160, 14, 160), Paint()..color = wallShadow);
+    canvas.drawRect(const Rect.fromLTWH(-41, -160, 2.5, 160),
+        Paint()..color = wallDeepRecess);
+    canvas.drawRect(
+        const Rect.fromLTWH(41, -160, 14, 160), Paint()..color = wallSunlit);
+    canvas.drawRect(
+        const Rect.fromLTWH(39, -160, 2.2, 160), Paint()..color = wallShadow);
 
     for (double wy = -150; wy <= -26; wy += 12) {
-      canvas.drawRect(Rect.fromLTWH(-50, wy - 0.8, 6, 8.2), Paint()..color = wallDeepRecess);
-      canvas.drawRect(Rect.fromLTWH(43, wy - 0.8, 6, 8.2), Paint()..color = wallDeepRecess);
+      canvas.drawRect(
+          Rect.fromLTWH(-50, wy - 0.8, 6, 8.2), Paint()..color = wallDeepRecess);
+      canvas.drawRect(
+          Rect.fromLTWH(43, wy - 0.8, 6, 8.2), Paint()..color = wallDeepRecess);
       final winColor = n > 0.4 ? const Color(0xB8FDE082) : glassDeep;
-      canvas.drawRect(Rect.fromLTWH(-49, wy, 5, 7), Paint()..color = winColor);
-      canvas.drawRect(Rect.fromLTWH(44, wy, 5, 7), Paint()..color = winColor);
+      canvas.drawRect(
+          Rect.fromLTWH(-49, wy, 5, 7), Paint()..color = winColor);
+      canvas.drawRect(
+          Rect.fromLTWH(44, wy, 5, 7), Paint()..color = winColor);
     }
 
     final towerGlassPaint = Paint()
@@ -1024,8 +1080,10 @@ class _CampusAtmospherePainter extends CustomPainter {
         stops: const [0.0, 0.55, 1.0],
         colors: [glassDeep, glassLight, glassDeep],
       ).createShader(const Rect.fromLTWH(-38, -154, 76, 126));
-    canvas.drawRect(const Rect.fromLTWH(-38, -154, 31, 124), towerGlassPaint);
-    canvas.drawRect(const Rect.fromLTWH(7, -154, 31, 124), towerGlassPaint);
+    canvas.drawRect(
+        const Rect.fromLTWH(-38, -154, 31, 124), towerGlassPaint);
+    canvas.drawRect(
+        const Rect.fromLTWH(7, -154, 31, 124), towerGlassPaint);
 
     final glassShadow = Paint()..color = const Color(0x61081228);
     canvas.drawRect(const Rect.fromLTWH(-10.5, -154, 3.5, 124), glassShadow);
@@ -1048,9 +1106,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     }
 
     if (n > 0.25) {
-      final nightWin = Paint()..color = const Color(0xFFFEF08A).withValues(alpha: 0.5 * n);
-      // Jendela yang bersinggungan dengan plakat logo dilewati agar tidak
-      // ada sisa jendela yang mengintip di pinggir plakat.
+      final nightWin = Paint()
+        ..color = const Color(0xFFFEF08A).withValues(alpha: 0.5 * n);
       const plaqueZone = Rect.fromLTWH(-19.5, -156, 39, 42);
       for (double ry = -146; ry <= -38; ry += 16) {
         for (final wx in const [-34.0, -20.0, 10.0, 24.0]) {
@@ -1069,7 +1126,8 @@ class _CampusAtmospherePainter extends CustomPainter {
       canvas.drawLine(Offset(7, gy), Offset(38, gy), gridPaint);
     }
 
-    canvas.drawRect(const Rect.fromLTWH(-11, -156, 3, 126), Paint()..color = const Color(0x57081228));
+    canvas.drawRect(const Rect.fromLTWH(-11, -156, 3, 126),
+        Paint()..color = const Color(0x57081228));
     canvas.drawRect(
       const Rect.fromLTWH(-8, -156, 16, 126),
       Paint()
@@ -1080,7 +1138,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     );
 
     for (double sy = -112; sy <= -38; sy += 13) {
-      canvas.drawRect(Rect.fromLTWH(-4.8, sy - 0.7, 9.6, 9), Paint()..color = wallDeepRecess);
+      canvas.drawRect(
+          Rect.fromLTWH(-4.8, sy - 0.7, 9.6, 9), Paint()..color = wallDeepRecess);
       canvas.drawRect(
         Rect.fromLTWH(-4.2, sy, 8.4, 8),
         Paint()..color = n > 0.4 ? const Color(0xBDFDE082) : glassDeep,
@@ -1088,8 +1147,10 @@ class _CampusAtmospherePainter extends CustomPainter {
     }
 
     // Plakat Logo UNESA di Menara Tengah
-    canvas.drawRect(const Rect.fromLTWH(-17.5, -152, 31, 36.5), Paint()..color = const Color(0x75081228));
-    canvas.drawRect(const Rect.fromLTWH(-15, -154, 30, 36), Paint()..color = const Color(0xFF0B357A));
+    canvas.drawRect(const Rect.fromLTWH(-17.5, -152, 31, 36.5),
+        Paint()..color = const Color(0x75081228));
+    canvas.drawRect(const Rect.fromLTWH(-15, -154, 30, 36),
+        Paint()..color = const Color(0xFF0B357A));
     canvas.drawRect(
       const Rect.fromLTWH(-15, -154, 30, 36),
       Paint()
@@ -1098,21 +1159,33 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..strokeWidth = 1.4,
     );
     if (UnesaLogoCache.image != null) {
-      drawUnesaLogoFit(canvas, Rect.fromCenter(center: const Offset(0, -136), width: 25, height: 27));
+      drawUnesaLogoFit(
+          canvas,
+          Rect.fromCenter(
+              center: const Offset(0, -136), width: 25, height: 27));
     } else {
       _drawUnesaCrestEmblem(canvas, 0, -138, 12.2);
     }
 
-    canvas.drawRect(const Rect.fromLTWH(-38, -32, 2.5, 32), Paint()..color = terracottaShade);
-    canvas.drawRect(const Rect.fromLTWH(-35.5, -32, 10.5, 32), Paint()..color = terracottaLit);
-    canvas.drawRect(const Rect.fromLTWH(25, -32, 2.5, 32), Paint()..color = terracottaShade);
-    canvas.drawRect(const Rect.fromLTWH(27.5, -32, 10.5, 32), Paint()..color = terracottaLit);
+    canvas.drawRect(
+        const Rect.fromLTWH(-38, -32, 2.5, 32), Paint()..color = terracottaShade);
+    canvas.drawRect(const Rect.fromLTWH(-35.5, -32, 10.5, 32),
+        Paint()..color = terracottaLit);
+    canvas.drawRect(
+        const Rect.fromLTWH(25, -32, 2.5, 32), Paint()..color = terracottaShade);
+    canvas.drawRect(const Rect.fromLTWH(27.5, -32, 10.5, 32),
+        Paint()..color = terracottaLit);
 
-    canvas.drawRect(const Rect.fromLTWH(-47, -15, 93, 6.5), Paint()..color = const Color(0x7A081226));
-    canvas.drawRect(const Rect.fromLTWH(-48, -19.5, 96, 4.5), Paint()..color = wallSunlit);
-    canvas.drawRect(const Rect.fromLTWH(-48, -16, 96, 1.5), Paint()..color = wallShadow);
-    canvas.drawRect(const Rect.fromLTWH(-16, -15, 32, 5.5), Paint()..color = const Color(0xFFB91C1C));
-    canvas.drawRect(const Rect.fromLTWH(-24, -10, 48, 10), Paint()..color = wallDeepRecess);
+    canvas.drawRect(const Rect.fromLTWH(-47, -15, 93, 6.5),
+        Paint()..color = const Color(0x7A081226));
+    canvas.drawRect(
+        const Rect.fromLTWH(-48, -19.5, 96, 4.5), Paint()..color = wallSunlit);
+    canvas.drawRect(
+        const Rect.fromLTWH(-48, -16, 96, 1.5), Paint()..color = wallShadow);
+    canvas.drawRect(const Rect.fromLTWH(-16, -15, 32, 5.5),
+        Paint()..color = const Color(0xFFB91C1C));
+    canvas.drawRect(
+        const Rect.fromLTWH(-24, -10, 48, 10), Paint()..color = wallDeepRecess);
 
     if (n > 0.3) {
       final upGlow = Paint()
@@ -1130,7 +1203,6 @@ class _CampusAtmospherePainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Logo UNESA lengkap (Tugu Pahlawan emas berlekuk + 9 helai sayap melengkung + tulisan UNESA)
   void _drawUnesaCrestEmblem(Canvas canvas, double cx, double cy, double r) {
     canvas.save();
     canvas.translate(cx, cy - 0.8);
@@ -1151,9 +1223,12 @@ class _CampusAtmospherePainter extends CustomPainter {
     final flutePaint = Paint()
       ..color = const Color(0xFF0B357A)
       ..strokeWidth = 0.52;
-    canvas.drawLine(const Offset(-0.75, -8.2), const Offset(-1.05, 5.1), flutePaint);
-    canvas.drawLine(const Offset(0.0, -8.5), const Offset(0.0, 5.5), flutePaint);
-    canvas.drawLine(const Offset(0.75, -8.2), const Offset(1.05, 5.1), flutePaint);
+    canvas.drawLine(
+        const Offset(-0.75, -8.2), const Offset(-1.05, 5.1), flutePaint);
+    canvas.drawLine(
+        const Offset(0.0, -8.5), const Offset(0.0, 5.5), flutePaint);
+    canvas.drawLine(
+        const Offset(0.75, -8.2), const Offset(1.05, 5.1), flutePaint);
 
     final baseWing = Path()
       ..moveTo(0, 8.2)
@@ -1213,12 +1288,15 @@ class _CampusAtmospherePainter extends CustomPainter {
       for (int step = 0; step < 3; step++) {
         final sy = baseY - 6 + step * 3.2;
         final sx = dir == 1 ? cx + 28 : cx - 158;
-        canvas.drawRect(Rect.fromLTWH(sx, sy, 130, 1.8), Paint()..color = treadLit);
-        canvas.drawRect(Rect.fromLTWH(sx, sy + 1.8, 130, 1.4), Paint()..color = riserShade);
+        canvas.drawRect(
+            Rect.fromLTWH(sx, sy, 130, 1.8), Paint()..color = treadLit);
+        canvas.drawRect(
+            Rect.fromLTWH(sx, sy + 1.8, 130, 1.4), Paint()..color = riserShade);
       }
       final bx = dir == 1 ? cx + 44 : cx - 144;
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(bx, baseY - 8.5, 100, 4.5), const Radius.circular(2)),
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bx, baseY - 8.5, 100, 4.5), const Radius.circular(2)),
         Paint()..color = bushColor,
       );
     }
@@ -1227,14 +1305,16 @@ class _CampusAtmospherePainter extends CustomPainter {
       Rect.fromLTWH(cx - 24, baseY - 8, 48, 9),
       Paint()..color = _lerpRGB([51, 65, 85], [15, 23, 42], n),
     );
-    canvas.drawRect(
-        Rect.fromLTWH(cx - 16, baseY - 5.2, 32, 2.2), Paint()..color = const Color(0xFFF59E0B));
+    canvas.drawRect(Rect.fromLTWH(cx - 16, baseY - 5.2, 32, 2.2),
+        Paint()..color = const Color(0xFFF59E0B));
   }
 
   void _drawCenterFlagpole(Canvas canvas, double cx, double baseY, double n) {
     canvas.drawOval(
       Rect.fromCenter(center: Offset(cx - 5, baseY + 2.2), width: 32, height: 7.2),
-      Paint()..color = n < 0.5 ? const Color(0x660C2416) : const Color(0x99020610),
+      Paint()
+        ..color =
+        n < 0.5 ? const Color(0x660C2416) : const Color(0x99020610),
     );
 
     canvas.drawLine(
@@ -1246,7 +1326,8 @@ class _CampusAtmospherePainter extends CustomPainter {
             n < 0.5 ? const Color(0x4D0C2416) : const Color(0x70020610),
             const Color(0x000C2416),
           ],
-        ).createShader(Rect.fromPoints(Offset(cx - 2, baseY + 1), Offset(cx - 34, baseY + 14)))
+        ).createShader(
+            Rect.fromPoints(Offset(cx - 2, baseY + 1), Offset(cx - 34, baseY + 14)))
         ..strokeWidth = 2.6,
     );
 
@@ -1284,7 +1365,8 @@ class _CampusAtmospherePainter extends CustomPainter {
         ..color = _lerpRGB([255, 255, 255], [203, 213, 225], n)
         ..strokeWidth = 1.1,
     );
-    canvas.drawCircle(Offset(cx, poleTopY - 1.5), 2.5, Paint()..color = const Color(0xFFF59E0B));
+    canvas.drawCircle(
+        Offset(cx, poleTopY - 1.5), 2.5, Paint()..color = const Color(0xFFF59E0B));
 
     const flagW = 24.0;
     const flagH = 14.0;
@@ -1361,15 +1443,20 @@ class _CampusAtmospherePainter extends CustomPainter {
           const Color(0x000C2616),
         ],
         stops: const [0.0, 0.65, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(-10 * s, 3), radius: 34 * s));
+      ).createShader(
+          Rect.fromCircle(center: Offset(-10 * s, 3), radius: 34 * s));
 
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(-10 * s, 3), width: 68 * s, height: 13.6 * s),
+      Rect.fromCenter(
+          center: Offset(-10 * s, 3), width: 68 * s, height: 13.6 * s),
       treeShadow,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, 1.5), width: 26 * s, height: 7.2 * s),
-      Paint()..color = n < 0.5 ? const Color(0x8A081C10) : const Color(0xB802050C),
+      Rect.fromCenter(
+          center: const Offset(0, 1.5), width: 26 * s, height: 7.2 * s),
+      Paint()
+        ..color =
+        n < 0.5 ? const Color(0x8A081C10) : const Color(0xB802050C),
     );
 
     final barkDark = _lerpRGB([56, 38, 30], [18, 14, 16], n);
@@ -1378,7 +1465,8 @@ class _CampusAtmospherePainter extends CustomPainter {
     final trunkPath = Path()
       ..moveTo(-5.8 * s, 1.5)
       ..quadraticBezierTo(-2.3 * s, -4 * s, -2.0 * s, -trunkH * 0.4)
-      ..quadraticBezierTo(-1.4 * s, -trunkH * 0.75, sway * 0.5 - 1.2 * s, -trunkH * 0.92)
+      ..quadraticBezierTo(
+          -1.4 * s, -trunkH * 0.75, sway * 0.5 - 1.2 * s, -trunkH * 0.92)
       ..lineTo(sway * 0.5 + 1.2 * s, -trunkH * 0.92)
       ..quadraticBezierTo(1.4 * s, -trunkH * 0.75, 2.0 * s, -trunkH * 0.4)
       ..quadraticBezierTo(2.3 * s, -4 * s, 5.8 * s, 1.5)
@@ -1400,13 +1488,17 @@ class _CampusAtmospherePainter extends CustomPainter {
 
     final bPath = Path()
       ..moveTo(sway * 0.38, -trunkH * 0.66)
-      ..quadraticBezierTo(sway * 0.55 - 8 * s, -trunkH * 0.80, sway * 0.75 - 19 * s, -trunkH - 8 * s)
+      ..quadraticBezierTo(sway * 0.55 - 8 * s, -trunkH * 0.80,
+          sway * 0.75 - 19 * s, -trunkH - 8 * s)
       ..moveTo(sway * 0.40, -trunkH * 0.70)
-      ..quadraticBezierTo(sway * 0.58 + 8 * s, -trunkH * 0.84, sway * 0.75 + 18 * s, -trunkH - 7 * s)
+      ..quadraticBezierTo(sway * 0.58 + 8 * s, -trunkH * 0.84,
+          sway * 0.75 + 18 * s, -trunkH - 7 * s)
       ..moveTo(sway * 0.48, -trunkH * 0.84)
-      ..quadraticBezierTo(sway * 0.68 - 5 * s, -trunkH - 6 * s, sway * 0.88 - 11 * s, -trunkH - 24 * s)
+      ..quadraticBezierTo(sway * 0.68 - 5 * s, -trunkH - 6 * s,
+          sway * 0.88 - 11 * s, -trunkH - 24 * s)
       ..moveTo(sway * 0.48, -trunkH * 0.86)
-      ..quadraticBezierTo(sway * 0.70 + 5 * s, -trunkH - 8 * s, sway * 0.90 + 10 * s, -trunkH - 25 * s);
+      ..quadraticBezierTo(sway * 0.70 + 5 * s, -trunkH - 8 * s,
+          sway * 0.90 + 10 * s, -trunkH - 25 * s);
 
     canvas.drawPath(bPath, branchPaint);
 
@@ -1450,7 +1542,8 @@ class _CampusAtmospherePainter extends CustomPainter {
         canvas.save();
         canvas.rotate(-0.25);
         canvas.drawOval(
-          Rect.fromCenter(center: Offset.zero, width: leaf.len * 2, height: leaf.wid * 2),
+          Rect.fromCenter(
+              center: Offset.zero, width: leaf.len * 2, height: leaf.wid * 2),
           lp,
         );
         canvas.restore();
@@ -1459,7 +1552,10 @@ class _CampusAtmospherePainter extends CustomPainter {
         canvas.translate(leaf.len * 0.35, -leaf.wid * 0.45);
         canvas.rotate(0.35);
         canvas.drawOval(
-          Rect.fromCenter(center: Offset.zero, width: leaf.len * 1.64, height: leaf.wid * 1.70),
+          Rect.fromCenter(
+              center: Offset.zero,
+              width: leaf.len * 1.64,
+              height: leaf.wid * 1.70),
           lp,
         );
         canvas.restore();
@@ -1487,14 +1583,16 @@ class BandHeader extends StatelessWidget {
   final Widget? trailing;
   final double? height;
 
-  const BandHeader(this.title, {super.key, this.subtitle, this.trailing, this.height});
+  const BandHeader(this.title,
+      {super.key, this.subtitle, this.trailing, this.height});
 
   @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
     return CartoonHeader(
-      height: height ?? 132,
+      height: height ?? 144,
       sunX: .86,
+      showBuilding: false,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1505,83 +1603,89 @@ class BandHeader extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: dark
                     ? [
-                  const Color(0xFF070E1E).withValues(alpha: 0.62),
-                  const Color(0xFF0B1730).withValues(alpha: 0.45),
+                  const Color(0xFF070E1E).withValues(alpha: 0.55),
+                  const Color(0xFF0B1730).withValues(alpha: 0.35),
                 ]
                     : [
-                  const Color(0xFF0E74D6).withValues(alpha: 0.22),
-                  const Color(0xFF093275).withValues(alpha: 0.36),
+                  const Color(0xFF0E74D6).withValues(alpha: 0.16),
+                  const Color(0xFF093275).withValues(alpha: 0.28),
                 ],
               ),
             ),
           ),
           SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 16, 16),
-              child: Row(
-                children: [
-                  const AppLogo(size: 42),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: dark
-                            ? const Color(0xFF0F172A).withValues(alpha: 0.82)
-                            : Colors.white.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Row(
+                  children: [
+                    const AppLogo(size: 42),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
                           color: dark
-                              ? Colors.white.withValues(alpha: 0.16)
+                              ? const Color(0xFF0F172A).withValues(alpha: 0.84)
                               : Colors.white.withValues(alpha: 0.92),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: dark ? 0.25 : 0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: dark
+                                ? const Color(0xFF2E5A44)
+                                : const Color(0xFFD1E7DD),
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: dark ? Colors.white : const Color(0xFF0B357A),
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black
+                                  .withValues(alpha: dark ? 0.26 : 0.07),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
                             ),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 2),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Text(
-                              subtitle!,
+                              title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: dark ? Colors.white70 : const Color(0xFF475569),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
+                                color: dark ? Colors.white : kSlateHeading,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
                               ),
                             ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: dark
+                                      ? const Color(0xFFCBD5E1)
+                                      : const Color(0xFF475569),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 8),
-                    trailing!,
+                    if (trailing != null) ...[
+                      const SizedBox(width: 8),
+                      trailing!,
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

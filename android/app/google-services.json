@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "669075448582-libfk9jjj4incfafqrgompbpjpn3sofk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.campusfind_unesa",
+            "certificate_hash": "aa699433010ffc8702bd7193ce6ea8aef070482e"
+          }
+        },
+        {
           "client_id": "669075448582-aljm47i24tjgkmrtcjt6rstdjgc2dg0i.apps.googleusercontent.com",
           "client_type": 3
         }

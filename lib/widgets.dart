@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,10 +19,16 @@ const List<Color> cardColors = [
   Color(0xFFEF6C00),
 ];
 
-const Color kEmeraldSolid = Color(0xFF15803D);
-const Color kForestSolid = Color(0xFF14532D);
+const Color kEmeraldSolid = kToska;        // #1080A6 (Toska Utama)
+const Color kForestSolid = kNavyPrimary;   // #0B2058 (Biru Utama UNESA)
 const Color kSlateHeading = Color(0xFF0F172A);
 const Color kSlateSubLabel = Color(0xFF334155);
+
+// Palet Dark Mode Navy & Toska (serasi dengan core.dart & main.dart)
+const Color _kDarkCard = Color(0xFF111D30);
+const Color _kDarkBorder = Color(0xFF1E3250);
+const Color _kDarkToska = Color(0xFF22B8CF);
+const Color _kLightBorder = Color(0xFFDCE6F2);
 
 Widget sectionHeading(BuildContext context, String title, {String? trailing}) {
   final dark = isDark(context);
@@ -32,7 +38,7 @@ Widget sectionHeading(BuildContext context, String title, {String? trailing}) {
         width: 4,
         height: 18,
         decoration: BoxDecoration(
-          color: dark ? const Color(0xFFCBD5E1) : kSlateSubLabel,
+          color: dark ? _kDarkToska : kEmeraldSolid,
           borderRadius: BorderRadius.circular(4),
         ),
       ),
@@ -70,20 +76,18 @@ BoxDecoration emeraldGlassDecoration(
   final dark = isDark(context);
   return BoxDecoration(
     borderRadius: BorderRadius.circular(radius),
-    color: dark ? const Color(0xFF13291F) : Colors.white,
+    color: dark ? _kDarkCard : Colors.white,
     border: Border.all(
       width: borderWidth,
-      color: accentBorder ??
-          (dark
-              ? const Color(0xFF2E5A44)
-              : const Color(0xFFD1E7DD)),
+      color: accentBorder ?? (dark ? _kDarkBorder : _kLightBorder),
     ),
     boxShadow: elevated
         ? [
       BoxShadow(
-        color: (dark ? Colors.black : kDeep).withValues(alpha: dark ? 0.28 : 0.04),
-        blurRadius: 12,
-        offset: const Offset(0, 4),
+        color: (dark ? Colors.black : kDeep)
+            .withValues(alpha: dark ? 0.24 : 0.045),
+        blurRadius: 10,
+        offset: const Offset(0, 3),
       ),
     ]
         : null,
@@ -127,7 +131,8 @@ class TapScale extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final double scaleDown;
-  const TapScale({super.key, required this.child, this.onTap, this.scaleDown = 0.965});
+  const TapScale(
+      {super.key, required this.child, this.onTap, this.scaleDown = 0.965});
 
   @override
   State<TapScale> createState() => _TapScaleState();
@@ -140,7 +145,8 @@ class _TapScaleState extends State<TapScale> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: widget.onTap == null ? null : (_) => setState(() => _pressed = true),
+      onTapDown:
+      widget.onTap == null ? null : (_) => setState(() => _pressed = true),
       onTapUp: widget.onTap == null
           ? null
           : (_) {
@@ -150,7 +156,7 @@ class _TapScaleState extends State<TapScale> {
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
         scale: _pressed ? widget.scaleDown : 1.0,
-        duration: const Duration(milliseconds: 120),
+        duration: const Duration(milliseconds: 110),
         curve: Curves.easeOutCubic,
         child: widget.child,
       ),
@@ -166,14 +172,15 @@ class FadeSlideIn extends StatefulWidget {
     super.key,
     required this.child,
     this.index = 0,
-    this.duration = const Duration(milliseconds: 340),
+    this.duration = const Duration(milliseconds: 300),
   });
 
   @override
   State<FadeSlideIn> createState() => _FadeSlideInState();
 }
 
-class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStateMixin {
+class _FadeSlideInState extends State<FadeSlideIn>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _opacity;
   late final Animation<Offset> _slide;
@@ -184,9 +191,10 @@ class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStat
     _ctrl = AnimationController(vsync: this, duration: widget.duration);
     final curve = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
     _opacity = curve;
-    _slide = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(curve);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+        .animate(curve);
 
-    final delay = Duration(milliseconds: (widget.index.clamp(0, 8)) * 45);
+    final delay = Duration(milliseconds: (widget.index.clamp(0, 6)) * 35);
     Future.delayed(delay, () {
       if (mounted) _ctrl.forward();
     });
@@ -215,7 +223,7 @@ class AnimatedCounter extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value.toDouble()),
-      duration: const Duration(milliseconds: 650),
+      duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutCubic,
       builder: (_, v, __) => Text('${v.round()}$suffix', style: style),
     );
@@ -224,19 +232,26 @@ class AnimatedCounter extends StatelessWidget {
 
 class ShimmerBox extends StatefulWidget {
   final double width, height, radius;
-  const ShimmerBox({super.key, this.width = double.infinity, required this.height, this.radius = 12});
+  const ShimmerBox(
+      {super.key,
+        this.width = double.infinity,
+        required this.height,
+        this.radius = 12});
 
   @override
   State<ShimmerBox> createState() => _ShimmerBoxState();
 }
 
-class _ShimmerBoxState extends State<ShimmerBox> with SingleTickerProviderStateMixin {
+class _ShimmerBoxState extends State<ShimmerBox>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..repeat();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat();
   }
 
   @override
@@ -248,8 +263,8 @@ class _ShimmerBoxState extends State<ShimmerBox> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
-    final base = dark ? const Color(0xFF1A3025) : const Color(0xFFE6EFE9);
-    final highlight = dark ? const Color(0xFF284838) : const Color(0xFFF6FBF8);
+    final base = dark ? const Color(0xFF15243B) : const Color(0xFFE6EEF6);
+    final highlight = dark ? const Color(0xFF213757) : const Color(0xFFF5F9FD);
 
     return AnimatedBuilder(
       animation: _ctrl,
@@ -359,7 +374,7 @@ class AppLogo extends StatelessWidget {
         border: Border.all(
           color: dark
               ? const Color(0xFF93C5FD).withValues(alpha: 0.45)
-              : const Color(0xFFD1E7DD),
+              : _kLightBorder,
           width: 1.4,
         ),
         boxShadow: [
@@ -388,23 +403,28 @@ class _CampusFindLogoPainter extends CustomPainter {
     canvas.save();
     canvas.scale(s, s);
 
-    canvas.drawCircle(const Offset(60, 60), 60, Paint()..color = const Color(0xFF093275));
+    canvas.drawCircle(
+        const Offset(60, 60), 60, Paint()..color = const Color(0xFF093275));
 
     final skyArc = Paint()
       ..color = const Color(0xFF67C3F3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 43), -1.95, 0.76, false, skyArc);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 42), 2.55, 0.42, false, skyArc);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 42), -0.34, 0.46, false, skyArc);
+    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 43),
+        -1.95, 0.76, false, skyArc);
+    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 42),
+        2.55, 0.42, false, skyArc);
+    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 42),
+        -0.34, 0.46, false, skyArc);
 
     final whiteArc = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 43), 0.95, 1.25, false, whiteArc);
+    canvas.drawArc(Rect.fromCircle(center: const Offset(60, 60), radius: 43),
+        0.95, 1.25, false, whiteArc);
 
     canvas.drawCircle(const Offset(34, 30), 15, Paint()..color = Colors.white);
     canvas.drawPath(
@@ -417,33 +437,43 @@ class _CampusFindLogoPainter extends CustomPainter {
       Paint()..color = const Color(0xFFFBBF24),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(26, 27, 16, 10), const Radius.circular(2.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(26, 27, 16, 10), const Radius.circular(2.5)),
       Paint()..color = const Color(0xFF1D4ED8),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(37, 30, 6, 4), const Radius.circular(1.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(37, 30, 6, 4), const Radius.circular(1.5)),
       Paint()..color = const Color(0xFF1E3A8A),
     );
-    canvas.drawCircle(const Offset(39.5, 32), 1.2, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        const Offset(39.5, 32), 1.2, Paint()..color = Colors.white);
 
-    canvas.drawCircle(const Offset(23, 64), 13.5, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        const Offset(23, 64), 13.5, Paint()..color = Colors.white);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(20, 55, 6, 3), const Radius.circular(1)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(20, 55, 6, 3), const Radius.circular(1)),
       Paint()..color = const Color(0xFF1E3A8A),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(18.5, 58, 9, 15), const Radius.circular(2.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(18.5, 58, 9, 15), const Radius.circular(2.5)),
       Paint()..color = const Color(0xFF1D4ED8),
     );
-    canvas.drawCircle(const Offset(23, 65.5), 2.6, Paint()..color = const Color(0xFFFBBF24));
+    canvas.drawCircle(const Offset(23, 65.5), 2.6,
+        Paint()..color = const Color(0xFFFBBF24));
 
     canvas.drawCircle(const Offset(88, 30), 15, Paint()..color = Colors.white);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(85, 19, 6, 22), const Radius.circular(1.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(85, 19, 6, 22), const Radius.circular(1.5)),
       Paint()..color = const Color(0xFF1D4ED8),
     );
-    canvas.drawCircle(const Offset(88, 30), 6.5, Paint()..color = const Color(0xFFFBBF24));
-    canvas.drawCircle(const Offset(88, 30), 4.8, Paint()..color = const Color(0xFF1E3A8A));
+    canvas.drawCircle(
+        const Offset(88, 30), 6.5, Paint()..color = const Color(0xFFFBBF24));
+    canvas.drawCircle(
+        const Offset(88, 30), 4.8, Paint()..color = const Color(0xFF1E3A8A));
     canvas.drawPath(
       Path()
         ..moveTo(88, 27.5)
@@ -457,16 +487,19 @@ class _CampusFindLogoPainter extends CustomPainter {
     );
 
     canvas.drawCircle(const Offset(95, 71), 14, Paint()..color = Colors.white);
-    canvas.drawCircle(const Offset(92, 68), 3.5, Paint()..color = const Color(0xFFCBD5E1));
+    canvas.drawCircle(
+        const Offset(92, 68), 3.5, Paint()..color = const Color(0xFFCBD5E1));
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(90.8, 71, 2.4, 8), const Radius.circular(1)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(90.8, 71, 2.4, 8), const Radius.circular(1)),
       Paint()..color = const Color(0xFFCBD5E1),
     );
     canvas.save();
     canvas.translate(96, 68);
     canvas.rotate(-0.26);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, 6, 10), const Radius.circular(2)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0, 0, 6, 10), const Radius.circular(2)),
       Paint()..color = const Color(0xFF1D4ED8),
     );
     canvas.restore();
@@ -484,24 +517,32 @@ class _CampusFindLogoPainter extends CustomPainter {
     canvas.translate(78, 78);
     canvas.rotate(pi / 4);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(0, -4, 26, 9), const Radius.circular(4.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0, -4, 26, 9), const Radius.circular(4.5)),
       Paint()..color = const Color(0xFF1D4ED8),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(4, -2.5, 18, 3), const Radius.circular(1.5)),
+      RRect.fromRectAndRadius(
+          const Rect.fromLTWH(4, -2.5, 18, 3), const Radius.circular(1.5)),
       Paint()..color = const Color(0xFF67C3F3),
     );
     canvas.restore();
 
     canvas.drawCircle(const Offset(60, 61), 27, Paint()..color = Colors.white);
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: const Offset(60, 61), radius: 24.5)));
+    canvas.clipPath(Path()
+      ..addOval(Rect.fromCircle(center: const Offset(60, 61), radius: 24.5)));
 
-    canvas.drawRect(const Rect.fromLTWH(34, 35, 52, 52), Paint()..color = const Color(0xFF38BDF8));
-    canvas.drawCircle(const Offset(40, 70), 9, Paint()..color = const Color(0xFF16A34A));
-    canvas.drawCircle(const Offset(80, 70), 9, Paint()..color = const Color(0xFF16A34A));
-    canvas.drawCircle(const Offset(48, 73), 7, Paint()..color = const Color(0xFF22C55E));
-    canvas.drawCircle(const Offset(72, 73), 7, Paint()..color = const Color(0xFF22C55E));
+    canvas.drawRect(const Rect.fromLTWH(34, 35, 52, 52),
+        Paint()..color = const Color(0xFF38BDF8));
+    canvas.drawCircle(
+        const Offset(40, 70), 9, Paint()..color = const Color(0xFF16A34A));
+    canvas.drawCircle(
+        const Offset(80, 70), 9, Paint()..color = const Color(0xFF16A34A));
+    canvas.drawCircle(
+        const Offset(48, 73), 7, Paint()..color = const Color(0xFF22C55E));
+    canvas.drawCircle(
+        const Offset(72, 73), 7, Paint()..color = const Color(0xFF22C55E));
 
     canvas.drawPath(
       Path()
@@ -525,10 +566,12 @@ class _CampusFindLogoPainter extends CustomPainter {
     final facadeBlue = Paint()..color = const Color(0xFF1D74E8);
     canvas.drawRect(const Rect.fromLTWH(46.5, 55, 9, 28), facadeBlue);
     canvas.drawRect(const Rect.fromLTWH(64.5, 55, 9, 28), facadeBlue);
-    canvas.drawRect(const Rect.fromLTWH(58.5, 54, 3, 29), Paint()..color = const Color(0xFFE2E8F0));
+    canvas.drawRect(const Rect.fromLTWH(58.5, 54, 3, 29),
+        Paint()..color = const Color(0xFFE2E8F0));
 
     if (UnesaLogoCache.image == null) {
-      canvas.drawRect(const Rect.fromLTWH(56, 54, 8, 8), Paint()..color = const Color(0xFF1E3A8A));
+      canvas.drawRect(const Rect.fromLTWH(56, 54, 8, 8),
+          Paint()..color = const Color(0xFF1E3A8A));
     }
     drawUnesaBadge(canvas, const Offset(60, 59.5), 7.4);
 
@@ -554,36 +597,47 @@ class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool outlined;
-  const PrimaryButton(this.label, this.onPressed, {super.key, this.outlined = false});
+  const PrimaryButton(this.label, this.onPressed,
+      {super.key, this.outlined = false});
   @override
-  Widget build(BuildContext context) => TapScale(
-    onTap: onPressed,
-    child: SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: outlined
-          ? OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: kEmeraldSolid, width: 1.4),
-          foregroundColor: kEmeraldSolid,
-          backgroundColor: kEmeraldSolid.withValues(alpha: 0.06),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    final accent = dark ? _kDarkToska : kEmeraldSolid;
+    return TapScale(
+      onTap: onPressed,
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: outlined
+            ? OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: accent, width: 1.4),
+            foregroundColor: accent,
+            backgroundColor: accent.withValues(alpha: 0.08),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          onPressed: onPressed,
+          child: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+        )
+            : ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: onPressed == null
+                ? Colors.grey.shade400
+                : kEmeraldSolid,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          onPressed: onPressed,
+          child: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
-        onPressed: onPressed,
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-      )
-          : ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: onPressed == null ? Colors.grey.shade400 : kEmeraldSolid,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-        onPressed: onPressed,
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class AppField extends StatelessWidget {
@@ -621,7 +675,8 @@ class AppField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -634,29 +689,35 @@ class AppField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: mutedC(context), fontSize: 13),
-            prefixIcon: icon == null ? null : Icon(icon, size: 19, color: mutedC(context)),
+            prefixIcon: icon == null
+                ? null
+                : Icon(icon, size: 19, color: mutedC(context)),
             suffixIcon: suffix,
             filled: true,
-            fillColor: dark ? const Color(0xFF13291F) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            fillColor: dark ? _kDarkCard : Colors.white,
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+              borderSide: BorderSide(color: dark ? _kDarkBorder : _kLightBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+              borderSide: BorderSide(color: dark ? _kDarkBorder : _kLightBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: kEmeraldSolid, width: 1.6),
+              borderSide: BorderSide(
+                  color: dark ? _kDarkToska : kEmeraldSolid, width: 1.6),
             ),
           ),
         ),
         if (helper != null)
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: Text(helper!, style: TextStyle(fontSize: 11, color: mutedC(context), height: 1.35)),
+            child: Text(helper!,
+                style: TextStyle(
+                    fontSize: 11, color: mutedC(context), height: 1.35)),
           ),
       ]),
     );
@@ -670,7 +731,8 @@ class AppDropdown extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final bool isRequired;
   final String? helper;
-  const AppDropdown(this.label, this.hint, this.items, this.value, this.onChanged,
+  const AppDropdown(
+      this.label, this.hint, this.items, this.value, this.onChanged,
       {super.key, this.isRequired = false, this.helper});
 
   @override
@@ -679,44 +741,56 @@ class AppDropdown extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           value: value,
           isExpanded: true,
-          hint: Text(hint, style: TextStyle(color: mutedC(context), fontSize: 13)),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13)))).toList(),
+          hint: Text(hint,
+              style: TextStyle(color: mutedC(context), fontSize: 13)),
+          items: items
+              .map((e) => DropdownMenuItem(
+              value: e,
+              child: Text(e, style: const TextStyle(fontSize: 13))))
+              .toList(),
           onChanged: onChanged,
-          validator: isRequired ? (v) => v == null ? 'Wajib dipilih' : null : null,
+          validator:
+          isRequired ? (v) => v == null ? 'Wajib dipilih' : null : null,
           decoration: InputDecoration(
             filled: true,
-            fillColor: dark ? const Color(0xFF13291F) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            fillColor: dark ? _kDarkCard : Colors.white,
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+              borderSide: BorderSide(color: dark ? _kDarkBorder : _kLightBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+              borderSide: BorderSide(color: dark ? _kDarkBorder : _kLightBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: kEmeraldSolid, width: 1.6),
+              borderSide: BorderSide(
+                  color: dark ? _kDarkToska : kEmeraldSolid, width: 1.6),
             ),
           ),
         ),
         if (helper != null)
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: Text(helper!, style: TextStyle(fontSize: 11, color: mutedC(context), height: 1.35)),
+            child: Text(helper!,
+                style: TextStyle(
+                    fontSize: 11, color: mutedC(context), height: 1.35)),
           ),
       ]),
     );
   }
 }
 
-Future<String?> pickImage(BuildContext context, {bool hasCurrent = false}) async {
+Future<String?> pickImage(BuildContext context,
+    {bool hasCurrent = false}) async {
   final choice = await showModalBottomSheet<ImageSource>(
     context: context,
     showDragHandle: true,
@@ -733,33 +807,49 @@ Future<String?> pickImage(BuildContext context, {bool hasCurrent = false}) async
         if (hasCurrent)
           ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Hapus Foto', style: TextStyle(color: Colors.red)),
+              title:
+              const Text('Hapus Foto', style: TextStyle(color: Colors.red)),
               onTap: () => Navigator.pop(c)),
       ]),
     ),
   );
   if (choice == null) return null;
-  final x = await ImagePicker().pickImage(source: choice, maxWidth: 640, maxHeight: 640, imageQuality: 70);
+  final x = await ImagePicker().pickImage(
+      source: choice, maxWidth: 640, maxHeight: 640, imageQuality: 70);
   if (x == null) return null;
   final bytes = await x.readAsBytes();
   return 'data:image/jpeg;base64,${base64Encode(bytes)}';
 }
 
+/// Gambar dengan memory cache agar scroll katalog cepat dan bebas lag.
 class PhotoImage extends StatelessWidget {
   final String path;
   final BoxFit fit;
   const PhotoImage(this.path, {super.key, this.fit = BoxFit.cover});
 
+  static final Map<String, Uint8List> _memCache = {};
+
   @override
   Widget build(BuildContext context) {
     if (path.startsWith('data:image')) {
       try {
-        final raw = path.split(',').last;
-        return Image.memory(base64Decode(raw), fit: fit, gaplessPlayback: true);
+        if (_memCache.length > 80) {
+          _memCache.remove(_memCache.keys.first);
+        }
+        final bytes = _memCache.putIfAbsent(
+          path,
+              () => base64Decode(path.split(',').last),
+        );
+        return Image.memory(
+          bytes,
+          fit: fit,
+          cacheWidth: 420,
+          gaplessPlayback: true,
+        );
       } catch (_) {}
     }
     if (!kIsWeb && File(path).existsSync()) {
-      return Image.file(File(path), fit: fit);
+      return Image.file(File(path), fit: fit, cacheWidth: 420);
     }
     return const SizedBox();
   }
@@ -791,21 +881,36 @@ class PhotoBox extends StatelessWidget {
             right: 8,
             bottom: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.edit, size: 14, color: Colors.white),
-                SizedBox(width: 4),
-                Text('Ganti', style: TextStyle(color: Colors.white, fontSize: 11))
-              ]),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit, size: 14, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text('Ganti',
+                        style: TextStyle(
+                            color: Colors.white, fontSize: 11))
+                  ]),
             ),
           ),
         ])
-            : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.add_a_photo_outlined, size: 30, color: kEmeraldSolid),
-          const SizedBox(height: 6),
-          Text('Tambah Foto', style: TextStyle(color: mutedC(context), fontSize: 13)),
-        ]),
+            : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_a_photo_outlined,
+                  size: 30,
+                  color: isDark(context)
+                      ? _kDarkToska
+                      : kEmeraldSolid),
+              const SizedBox(height: 6),
+              Text('Tambah Foto',
+                  style: TextStyle(
+                      color: mutedC(context), fontSize: 13)),
+            ]),
       ),
     ),
   );
@@ -824,7 +929,9 @@ class ReportPhoto extends StatelessWidget {
     final idx = r.id.hashCode.abs() % cardColors.length;
     return Container(
       color: cardColors[idx],
-      child: Center(child: Icon(catIcons[r.category] ?? Icons.inventory_2_outlined, size: iconSize, color: Colors.white)),
+      child: Center(
+          child: Icon(catIcons[r.category] ?? Icons.inventory_2_outlined,
+              size: iconSize, color: Colors.white)),
     );
   }
 }
@@ -866,28 +973,37 @@ class FilterChips extends StatelessWidget {
   final ValueChanged<String> onChanged;
   const FilterChips(this.items, this.value, this.onChanged, {super.key});
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: items.map((s) {
-        final on = value == s;
-        return Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: ChoiceChip(
-            label: Text(s,
-                style: TextStyle(
-                    fontSize: 12, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? Colors.white : null)),
-            selected: on,
-            selectedColor: kEmeraldSolid,
-            backgroundColor: isDark(context) ? const Color(0xFF13291F) : Colors.white,
-            side: BorderSide(color: on ? kEmeraldSolid : (isDark(context) ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD))),
-            showCheckmark: false,
-            onSelected: (_) => onChanged(s),
-          ),
-        );
-      }).toList(),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: items.map((s) {
+          final on = value == s;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ChoiceChip(
+              label: Text(s,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                      color: on ? Colors.white : null)),
+              selected: on,
+              selectedColor: kEmeraldSolid,
+              backgroundColor: dark ? _kDarkCard : Colors.white,
+              side: BorderSide(
+                  color: on
+                      ? kEmeraldSolid
+                      : (dark ? _kDarkBorder : _kLightBorder)),
+              showCheckmark: false,
+              onSelected: (_) => onChanged(s),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 
 class InfoRow extends StatelessWidget {
@@ -901,9 +1017,13 @@ class InfoRow extends StatelessWidget {
       Icon(icon, size: 18, color: mutedC(context)),
       const SizedBox(width: 10),
       Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 11, color: mutedC(context))),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: TextStyle(fontSize: 11, color: mutedC(context))),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w500)),
         ]),
       ),
     ]),
@@ -920,15 +1040,22 @@ class SecretBox extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: c.withValues(alpha: .12), borderRadius: BorderRadius.circular(16), border: Border.all(color: c.withValues(alpha: 0.6))),
+      decoration: BoxDecoration(
+          color: c.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.withValues(alpha: 0.6))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(Icons.lock, size: 15, color: c),
           const SizedBox(width: 6),
-          Expanded(child: Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c))),
+          Expanded(
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: c))),
         ]),
         const SizedBox(height: 6),
-        Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(text,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -940,54 +1067,82 @@ class ItemCard extends StatelessWidget {
   const ItemCard(this.r, this.onTap, {super.key});
 
   @override
-  Widget build(BuildContext context) => TapScale(
-    onTap: onTap,
-    child: EmeraldGlass(
-      borderRadius: 18,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
-            child: Stack(fit: StackFit.expand, children: [
-              ReportPhoto(r, iconSize: 40),
-              Positioned(top: 8, left: 8, child: StatusChip(r.typeLabel)),
-              if (r.status == stDone) Positioned(top: 8, right: 8, child: StatusChip(r.status)),
-              Positioned(
-                left: 8,
-                bottom: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                  child: Text(r.categoryLabel,
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    return TapScale(
+      onTap: onTap,
+      child: EmeraldGlass(
+        borderRadius: 18,
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(17)),
+              child: Stack(fit: StackFit.expand, children: [
+                ReportPhoto(r, iconSize: 40),
+                Positioned(top: 8, left: 8, child: StatusChip(r.typeLabel)),
+                if (r.status == stDone)
+                  Positioned(top: 8, right: 8, child: StatusChip(r.status)),
+                Positioned(
+                  left: 8,
+                  bottom: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text(r.categoryLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            const SizedBox(height: 3),
-            Row(children: [
-              Icon(Icons.place_outlined, size: 12, color: mutedC(context)),
-              const SizedBox(width: 2),
-              Expanded(
-                  child: Text(r.area,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: mutedC(context)))),
-            ]),
-            const SizedBox(height: 1),
-            Row(children: [
-              Icon(Icons.calendar_today_outlined, size: 11, color: mutedC(context)),
-              const SizedBox(width: 3),
-              Text(fmtDate(r.date), style: TextStyle(fontSize: 10, color: mutedC(context))),
-            ]),
-          ]),
-        ),
-      ]),
-    ),
-  );
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    Icon(Icons.local_police_outlined,
+                        size: 12,
+                        color: dark ? _kDarkToska : kEmeraldSolid),
+                    const SizedBox(width: 3),
+                    Expanded(
+                        child: Text(r.pos,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: mutedC(context)))),
+                  ]),
+                  const SizedBox(height: 2),
+                  Row(children: [
+                    Icon(Icons.calendar_today_outlined,
+                        size: 11, color: mutedC(context)),
+                    const SizedBox(width: 3),
+                    Text(fmtDate(r.date),
+                        style:
+                        TextStyle(fontSize: 10, color: mutedC(context))),
+                  ]),
+                ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class ReportTile extends StatelessWidget {
@@ -995,31 +1150,49 @@ class ReportTile extends StatelessWidget {
   final VoidCallback onTap;
   const ReportTile(this.r, this.onTap, {super.key});
   @override
-  Widget build(BuildContext context) => TapScale(
-    onTap: onTap,
-    child: EmeraldGlass(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      borderRadius: 18,
-      child: Row(children: [
-        ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: 58, height: 58, child: ReportPhoto(r, iconSize: 28))),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            const SizedBox(height: 2),
-            Text('${r.area} • ${r.pos}',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: mutedC(context))),
-            const SizedBox(height: 6),
-            Wrap(spacing: 6, children: [StatusChip(r.typeLabel), StatusChip(r.status)]),
-          ]),
-        ),
-        Icon(Icons.chevron_right_rounded, color: mutedC(context)),
-      ]),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final locText = (r.area.trim().isEmpty || r.area.trim() == r.pos.trim())
+        ? r.pos
+        : '${r.area} • ${r.pos}';
+    return TapScale(
+      onTap: onTap,
+      child: EmeraldGlass(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        borderRadius: 18,
+        child: Row(children: [
+          ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                  width: 58,
+                  height: 58,
+                  child: ReportPhoto(r, iconSize: 28))),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(locText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: mutedC(context))),
+                  const SizedBox(height: 6),
+                  Wrap(
+                      spacing: 6,
+                      children: [StatusChip(r.typeLabel), StatusChip(r.status)]),
+                ]),
+          ),
+          Icon(Icons.chevron_right_rounded, color: mutedC(context)),
+        ]),
+      ),
+    );
+  }
 }
 
 class ClaimTile extends StatelessWidget {
@@ -1029,6 +1202,7 @@ class ClaimTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = store.find(c.reportId);
+    final accent = isDark(context) ? _kDarkToska : kEmeraldSolid;
     return TapScale(
       onTap: onTap,
       child: EmeraldGlass(
@@ -1040,16 +1214,20 @@ class ClaimTile extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: kEmeraldSolid.withValues(alpha: 0.12),
+              color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.how_to_reg_rounded, color: kEmeraldSolid),
+            child: Icon(Icons.how_to_reg_rounded, color: accent),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(r?.name ?? 'Barang', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-              Text('Pengklaim: ${c.claimer}', style: TextStyle(fontSize: 11, color: mutedC(context))),
+            child:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(r?.name ?? 'Barang',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14)),
+              Text('Pengklaim: ${c.claimer}',
+                  style: TextStyle(fontSize: 11, color: mutedC(context))),
               const SizedBox(height: 6),
               StatusChip(c.status),
             ]),
@@ -1070,7 +1248,7 @@ class QrBox extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFD1E7DD)),
+      border: Border.all(color: _kLightBorder),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.06),
@@ -1090,7 +1268,9 @@ class NavItem {
   const NavItem(this.icon, this.activeIcon, this.label, {this.badge = 0});
 }
 
-class FloatingNav extends StatefulWidget {
+/// Navbar dengan cekungan gelombang & tombol melingkar menonjol yang bergeser mulus
+/// mengikuti semua tab yang aktif tanpa terpotong di tab pertama/terakhir.
+class FloatingNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
   final List<NavItem> items;
@@ -1107,244 +1287,212 @@ class FloatingNav extends StatefulWidget {
   });
 
   @override
-  State<FloatingNav> createState() => _FloatingNavState();
-}
-
-class _FloatingNavState extends State<FloatingNav> {
-  bool _showTooltip = false;
-
-  void _handleCenterTap(int targetIndex) {
-    setState(() => _showTooltip = true);
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (mounted) setState(() => _showTooltip = false);
-    });
-    widget.onTap(targetIndex);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final int count = widget.items.length;
+    final int count = items.length;
+    if (count == 0) return const SizedBox.shrink();
 
-    final bool hasCenterButton = widget.centerIndex != null || count.isOdd;
-    final int cIdx = hasCenterButton
-        ? (widget.centerIndex ?? (count ~/ 2)).clamp(0, count - 1)
-        : -1;
-
-    final List<int> leftIndices = hasCenterButton
-        ? [for (int i = 0; i < cIdx; i++) i]
-        : [for (int i = 0; i < count ~/ 2; i++) i];
-
-    final List<int> rightIndices = hasCenterButton
-        ? [for (int i = cIdx + 1; i < count; i++) i]
-        : [for (int i = count ~/ 2; i < count; i++) i];
-
-    final NavItem? centerItem = hasCenterButton ? widget.items[cIdx] : null;
-    final bool centerActive = hasCenterButton && widget.index == cIdx;
-    final String tooltipText = widget.centerTooltip ?? (centerItem?.label ?? '');
+    final int activeIdx = index.clamp(0, count - 1);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, (bottomInset > 0 ? bottomInset : 10) + 4),
-      child: SizedBox(
-        height: hasCenterButton ? 112 : 72,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 70,
-              child: hasCenterButton
-                  ? CustomPaint(
-                painter: _CurvedWaveBorderPainter(dark: dark),
-                child: ClipPath(
-                  clipper: _CurvedWaveClipper(),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      color: dark
-                          ? const Color(0xFF13291F).withValues(alpha: 0.94)
-                          : Colors.white.withValues(alpha: 0.95),
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: EdgeInsets.fromLTRB(
+          12, 0, 12, (bottomInset > 0 ? bottomInset : 10) + 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double totalW = constraints.maxWidth;
+          const double sidePad = 18.0;
+          final double usableW = totalW - sidePad * 2;
+          final double slotW = usableW / count;
+
+          return TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: activeIdx.toDouble()),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (context, animIndex, _) {
+              final double notchCenterX =
+                  sidePad + slotW * (animIndex + 0.5);
+              final NavItem activeItem = items[activeIdx];
+
+              return SizedBox(
+                height: 92,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // 1. Bilah latar navigasi dengan cekungan gelombang bergerak
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 66,
+                      child: CustomPaint(
+                        painter: _SlidingWaveBarPainter(
+                          notchCenterX: notchCenterX,
+                          dark: dark,
+                        ),
+                      ),
+                    ),
+
+                    // 2. Deretan slot tab
+                    Positioned(
+                      left: sidePad,
+                      right: sidePad,
+                      bottom: 0,
+                      height: 66,
                       child: Row(
                         children: [
-                          ...leftIndices.map((idx) => Expanded(child: _buildTabItem(idx, dark))),
-                          const SizedBox(width: 112),
-                          ...rightIndices.map((idx) => Expanded(child: _buildTabItem(idx, dark))),
+                          for (int i = 0; i < count; i++)
+                            Expanded(
+                              child: _buildFlatTabItem(
+                                i,
+                                items[i],
+                                isSelected: i == activeIdx,
+                                dark: dark,
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-              )
-                  : ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: dark
-                          ? const Color(0xFF13291F).withValues(alpha: 0.94)
-                          : Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        width: 1.2,
-                        color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (dark ? Colors.black : kDeep).withValues(alpha: 0.10),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        for (int i = 0; i < count; i++)
-                          Expanded(child: _buildTabItem(i, dark)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (hasCenterButton)
-              Positioned(
-                bottom: 84,
-                child: AnimatedScale(
-                  scale: _showTooltip ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutBack,
-                  child: AnimatedOpacity(
-                    opacity: _showTooltip ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 180),
-                    child: _GlassTooltipBubble(text: tooltipText, dark: dark),
-                  ),
-                ),
-              ),
-            if (hasCenterButton && centerItem != null)
-              Positioned(
-                bottom: 22,
-                child: TapScale(
-                  scaleDown: 0.90,
-                  onTap: () => _handleCenterTap(cIdx),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 240),
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: kEmeraldSolid,
-                          border: Border.all(
-                            color: centerActive ? Colors.white : const Color(0xFFD1E7DD),
-                            width: 2.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: kEmeraldSolid.withValues(alpha: 0.34),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
+
+                    // 3. Tombol bulat toska melayang yang presisi tepat di atas cekungan
+                    Positioned(
+                      left: notchCenterX - 25,
+                      bottom: 25,
+                      child: GestureDetector(
+                        onTap: () => onTap(activeIdx),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: kEmeraldSolid,
+                                border: Border.all(
+                                  color: dark ? _kDarkCard : Colors.white,
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kEmeraldSolid.withValues(alpha: 0.36),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  activeItem.activeIcon,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
                             ),
+                            if (activeItem.badge > 0)
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5.5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE11D48),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: dark ? _kDarkCard : Colors.white,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${activeItem.badge}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
-                        child: Badge(
-                          isLabelVisible: centerItem.badge > 0,
-                          label: Text('${centerItem.badge}'),
-                          child: Icon(
-                            centerActive ? centerItem.activeIcon : centerItem.icon,
-                            color: Colors.white,
-                            size: 26,
-                          ),
-                        ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        centerItem.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: centerActive ? FontWeight.w800 : FontWeight.w700,
-                          color: centerActive
-                              ? (dark ? Colors.white : kSlateHeading)
-                              : (dark ? Colors.white70 : kSlateSubLabel),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildTabItem(int i, bool dark) {
-    final it = widget.items[i];
-    final on = i == widget.index;
-    final activeColor = dark ? Colors.white : kSlateHeading;
+  Widget _buildFlatTabItem(
+      int i,
+      NavItem it, {
+        required bool isSelected,
+        required bool dark,
+      }) {
+    final activeColor = dark ? _kDarkToska : kEmeraldSolid;
     final inactiveColor = dark ? Colors.white60 : const Color(0xFF64748B);
 
-    return TapScale(
-      scaleDown: 0.92,
-      onTap: () => widget.onTap(i),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onTap(i),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 240),
-            width: on ? 18 : 0,
-            height: 3,
-            margin: const EdgeInsets.only(bottom: 4),
-            decoration: BoxDecoration(
-              color: dark ? const Color(0xFF4ADE80) : kEmeraldSolid,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          Badge(
-            isLabelVisible: it.badge > 0,
-            label: Text('${it.badge}'),
-            child: Icon(
-              on ? it.activeIcon : it.icon,
-              size: 22,
-              color: on ? activeColor : inactiveColor,
-            ),
-          ),
-          const SizedBox(height: 3),
+          if (!isSelected)
+            Badge(
+              isLabelVisible: it.badge > 0,
+              backgroundColor: const Color(0xFFE11D48),
+              label: Text(
+                '${it.badge}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800),
+              ),
+              child: Icon(
+                it.icon,
+                size: 22,
+                color: inactiveColor,
+              ),
+            )
+          else
+            const SizedBox(height: 22),
+          const SizedBox(height: 4),
           Text(
             it.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: on ? FontWeight.w800 : FontWeight.w600,
-              color: on ? activeColor : inactiveColor,
+              fontSize: 10.5,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? activeColor : inactiveColor,
             ),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 }
 
-Path _buildWaveNotchPath(Size size) {
-  const double r = 26.0;
+Path _buildSlidingWaveNotchPath(Size size, double cx) {
+  const double r = 22.0;
   final double w = size.width;
   final double h = size.height;
-  final double cx = w / 2;
+  final double clampedCx = cx.clamp(r + 36.0, w - r - 36.0);
 
   return Path()
     ..moveTo(r, 0)
-    ..lineTo(cx - 56, 0)
-    ..cubicTo(cx - 34, 0, cx - 32, 34, cx, 34)
-    ..cubicTo(cx + 32, 34, cx + 34, 0, cx + 56, 0)
+    ..lineTo(clampedCx - 42, 0)
+    ..cubicTo(clampedCx - 26, 0, clampedCx - 25, 29, clampedCx, 29)
+    ..cubicTo(clampedCx + 25, 29, clampedCx + 26, 0, clampedCx + 42, 0)
     ..lineTo(w - r, 0)
     ..quadraticBezierTo(w, 0, w, r)
     ..lineTo(w, h - r)
@@ -1356,104 +1504,48 @@ Path _buildWaveNotchPath(Size size) {
     ..close();
 }
 
-class _CurvedWaveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) => _buildWaveNotchPath(size);
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _CurvedWaveBorderPainter extends CustomPainter {
+class _SlidingWaveBarPainter extends CustomPainter {
+  final double notchCenterX;
   final bool dark;
-  const _CurvedWaveBorderPainter({required this.dark});
+
+  const _SlidingWaveBarPainter({
+    required this.notchCenterX,
+    required this.dark,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = _buildWaveNotchPath(size);
+    final path = _buildSlidingWaveNotchPath(size, notchCenterX);
 
     final shadowPaint = Paint()
-      ..color = (dark ? Colors.black : kDeep).withValues(alpha: 0.10)
+      ..color = (dark ? Colors.black : kDeep).withValues(alpha: 0.16)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.save();
     canvas.translate(0, 3);
     canvas.drawPath(path, shadowPaint);
     canvas.restore();
 
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = dark ? _kDarkCard : Colors.white;
+    canvas.drawPath(path, fillPaint);
+
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD);
-
+      ..color = dark ? _kDarkBorder : _kLightBorder;
     canvas.drawPath(path, borderPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _CurvedWaveBorderPainter oldDelegate) => oldDelegate.dark != dark;
-}
-
-class _GlassTooltipBubble extends StatelessWidget {
-  final String text;
-  final bool dark;
-  const _GlassTooltipBubble({required this.text, required this.dark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: dark ? const Color(0xFF13291F) : Colors.white,
-            border: Border.all(
-              color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: dark ? Colors.white : kSlateHeading,
-            ),
-          ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, -4),
-          child: Transform.rotate(
-            angle: pi / 4,
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xFF13291F) : Colors.white,
-                border: Border(
-                  right: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD), width: 1.2),
-                  bottom: BorderSide(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD), width: 1.2),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  bool shouldRepaint(covariant _SlidingWaveBarPainter oldDelegate) =>
+      oldDelegate.notchCenterX != notchCenterX || oldDelegate.dark != dark;
 }
 
 PageRouteBuilder<T> smoothRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
-    transitionDuration: const Duration(milliseconds: 380),
-    reverseTransitionDuration: const Duration(milliseconds: 280),
+    transitionDuration: const Duration(milliseconds: 340),
+    reverseTransitionDuration: const Duration(milliseconds: 260),
     pageBuilder: (_, __, ___) => page,
     transitionsBuilder: (_, animation, __, child) {
       final curved = CurvedAnimation(
@@ -1464,7 +1556,7 @@ PageRouteBuilder<T> smoothRoute<T>(Widget page) {
       return FadeTransition(
         opacity: curved,
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
           child: child,
         ),
       );
@@ -1503,14 +1595,17 @@ class _InteractiveCardState extends State<InteractiveCard> {
     final translateY = _hovered && !_pressed ? -4.0 : 0.0;
 
     return MouseRegion(
-      cursor: widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+      cursor:
+      widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() {
         _hovered = false;
         _pressed = false;
       }),
       child: GestureDetector(
-        onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
+        onTapDown: widget.onTap != null
+            ? (_) => setState(() => _pressed = true)
+            : null,
         onTapUp: widget.onTap != null
             ? (_) {
           setState(() => _pressed = false);
@@ -1519,7 +1614,7 @@ class _InteractiveCardState extends State<InteractiveCard> {
             : null,
         onTapCancel: () => setState(() => _pressed = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           transform: Matrix4.identity()
             ..translate(0.0, translateY)
@@ -1545,12 +1640,14 @@ class HomeHeader extends StatelessWidget {
   final String name;
   final String? subtitle;
   final VoidCallback? onProfile;
+  final double height;
 
   const HomeHeader({
     super.key,
     required this.name,
     this.subtitle,
     this.onProfile,
+    this.height = 285,
   });
 
   @override
@@ -1562,125 +1659,210 @@ class HomeHeader extends StatelessWidget {
         : 'Halo, $name';
 
     return CartoonHeader(
-      height: 290,
+      height: height,
       bx: .5,
       bs: .52,
       groundY: .80,
       sunX: .82,
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const AppLogo(size: 50),
-              const SizedBox(width: 11),
-              Expanded(
-                child: TapScale(
-                  onTap: onProfile,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: dark
-                          ? const Color(0xFF0F172A).withValues(alpha: 0.78)
-                          : Colors.white.withValues(alpha: 0.90),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: dark ? 0.30 : 0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const AppLogo(size: 46),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TapScale(
+                    onTap: onProfile,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: dark
+                            ? const Color(0xFF0F172A).withValues(alpha: 0.84)
+                            : Colors.white.withValues(alpha: 0.93),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: dark ? _kDarkBorder : _kLightBorder,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Campus',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.5,
-                                      height: 1.0,
-                                      color: dark ? Colors.white : kSlateHeading,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
-                                    decoration: BoxDecoration(
-                                      color: kEmeraldSolid,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'Find',
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withValues(alpha: dark ? 0.28 : 0.07),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Campus',
                                       style: TextStyle(
-                                        fontSize: 13.5,
+                                        fontSize: 17,
                                         fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.3,
+                                        letterSpacing: -0.5,
                                         height: 1.0,
-                                        color: Colors.white,
+                                        color:
+                                        dark ? Colors.white : kSlateHeading,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                infoText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6.5, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: kEmeraldSolid,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Find',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.3,
+                                          height: 1.0,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 3),
+                                Text(
+                                  infoText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: dark
+                                        ? const Color(0xFFCBD5E1)
+                                        : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (photoUrl.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          ClipOval(
-                            child: Image.network(
-                              photoUrl,
-                              width: 34,
-                              height: 34,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => CircleAvatar(
-                                radius: 17,
-                                backgroundColor: kSlateSubLabel,
-                                child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                          if (photoUrl.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            ClipOval(
+                              child: Image.network(
+                                photoUrl,
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: kSlateSubLabel,
+                                  child: Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
+                          if (onProfile != null) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right_rounded,
+                                size: 18, color: mutedC(context)),
+                          ],
                         ],
-                        if (onProfile != null) ...[
-                          const SizedBox(width: 4),
-                          Icon(Icons.chevron_right_rounded, size: 18, color: mutedC(context)),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Banner ringkas status & jam operasional pos satpam (untuk Beranda Mahasiswa).
+class HomePosStatusPill extends StatelessWidget {
+  final VoidCallback? onTap;
+  const HomePosStatusPill({super.key, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    final now = DateTime.now();
+    final isOpen =
+        now.weekday != DateTime.sunday && now.hour >= 7 && now.hour < 21;
+    final totalPos = store.availablePosList.length;
+
+    return TapScale(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: dark ? _kDarkCard : const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: dark ? _kDarkBorder : const Color(0xFFBFDBFE),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isOpen ? (dark ? _kDarkToska : kEmeraldSolid) : Colors.orange.shade600,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isOpen
+                    ? '$totalPos Pos Satpam Aktif • 07.00 – 21.00 WIB'
+                    : '$totalPos Pos Satpam • Layanan 07.00 – 21.00 WIB',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: dark ? const Color(0xFFE2E8F0) : kForestSolid,
+                ),
+              ),
+            ),
+            Text(
+              'Info Pos',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: dark ? const Color(0xFF38BDF8) : kEmeraldSolid,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: dark ? const Color(0xFF38BDF8) : kEmeraldSolid,
+            ),
+          ],
         ),
       ),
     );
@@ -1694,14 +1876,16 @@ class HomeHoursCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = isDark(context);
     final now = DateTime.now();
-    final isOpen = now.weekday != DateTime.sunday && now.hour >= 7 && now.hour < 21;
+    final isOpen =
+        now.weekday != DateTime.sunday && now.hour >= 7 && now.hour < 21;
+    final accent = dark ? _kDarkToska : kEmeraldSolid;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF13291F) : Colors.white,
+        color: dark ? _kDarkCard : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
+        border: Border.all(color: dark ? _kDarkBorder : _kLightBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: dark ? 0.22 : 0.04),
@@ -1716,10 +1900,11 @@ class HomeHoursCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: kEmeraldSolid.withValues(alpha: 0.12),
+              color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.access_time_filled_rounded, color: kEmeraldSolid, size: 24),
+            child: Icon(Icons.access_time_filled_rounded,
+                color: accent, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1731,13 +1916,16 @@ class HomeHoursCard extends StatelessWidget {
                     const Expanded(
                       child: Text(
                         'Jam Operasional Pos Satpam',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: (isOpen ? kEmeraldSolid : Colors.orange).withValues(alpha: 0.14),
+                        color: (isOpen ? accent : Colors.orange)
+                            .withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -1746,7 +1934,7 @@ class HomeHoursCard extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: isOpen
-                              ? (dark ? const Color(0xFF6EE7B7) : kEmeraldSolid)
+                              ? (dark ? const Color(0xFF38BDF8) : kEmeraldSolid)
                               : Colors.orange.shade800,
                         ),
                       ),
@@ -1764,7 +1952,7 @@ class HomeHoursCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Senin – Sabtu • Pos Gerbang Depan & Belakang',
+                  'Senin – Sabtu • ${store.availablePosList.length} Pos Layanan Kampus',
                   style: TextStyle(fontSize: 11.5, color: mutedC(context)),
                 ),
               ],
@@ -1789,10 +1977,11 @@ class HomeNewsSection extends StatelessWidget {
     final items = [
       (
       icon: Icons.inventory_2_outlined,
-      accent: kEmeraldSolid,
+      accent: dark ? _kDarkToska : kEmeraldSolid,
       tag: 'Temuan',
       title: '$foundCount Barang Temuan Siap Diklaim',
-      date: 'Tersimpan di Pos Gerbang Depan & Belakang',
+      date:
+      'Tersimpan di ${store.availablePosList.length} titik pos satpam kampus',
       ),
       (
       icon: Icons.search_rounded,
@@ -1815,73 +2004,94 @@ class HomeNewsSection extends StatelessWidget {
       children: [
         sectionHeading(context, 'Berita Terkini'),
         const SizedBox(height: 10),
-        for (final item in items)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: dark ? const Color(0xFF13291F) : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: dark ? const Color(0xFF2E5A44) : const Color(0xFFD1E7DD)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: dark ? 0.18 : 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        Container(
+          decoration: BoxDecoration(
+            color: dark ? _kDarkCard : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: dark ? _kDarkBorder : _kLightBorder,
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: item.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.18 : 0.035),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    indent: 68,
+                    endIndent: 14,
+                    color: dark
+                        ? _kDarkBorder.withValues(alpha: 0.8)
+                        : const Color(0xFFE2E8F0),
                   ),
-                  child: Icon(item.icon, color: item.accent, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
-                          color: item.accent.withValues(alpha: 0.12),
+                          color: items[i].accent.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          item.tag,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: dark ? Colors.white : item.accent,
-                          ),
-                        ),
+                        child: Icon(items[i].icon,
+                            color: dark && items[i].accent == kSlateSubLabel
+                                ? const Color(0xFFCBD5E1)
+                                : items[i].accent,
+                            size: 21),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.title,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: dark ? Colors.white : kSlateHeading,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              items[i].tag.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: dark && items[i].accent == kSlateSubLabel
+                                    ? const Color(0xFF94A3B8)
+                                    : items[i].accent,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              items[i].title,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: dark ? Colors.white : kSlateHeading,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              items[i].date,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: mutedC(context),
+                                  height: 1.35),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.date,
-                        style: TextStyle(fontSize: 11.5, color: mutedC(context)),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
+            ],
           ),
+        ),
       ],
     );
   }
