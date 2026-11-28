@@ -1824,15 +1824,7 @@ class PublicDetailScreen extends StatelessWidget {
                     () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => ClaimScreen(r))))
-          else
-            PrimaryButton(
-                'Saya Menemukan Barang Ini',
-                    () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            ReportFormScreen(found: true, prefill: r)))),
+                        builder: (_) => ClaimScreen(r)))),
         ]);
       },
     ),
