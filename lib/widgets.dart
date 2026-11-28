@@ -1069,6 +1069,11 @@ class ItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
+    final isFound = r.type == ReportType.ditemukan;
+    final badgeBg = isFound
+        ? (dark ? const Color(0xFF0E7490) : kEmeraldSolid)
+        : (dark ? const Color(0xFFB91C1C) : const Color(0xFFDC2626));
+
     return TapScale(
       onTap: onTap,
       child: EmeraldGlass(
@@ -1081,25 +1086,82 @@ class ItemCard extends StatelessWidget {
               const BorderRadius.vertical(top: Radius.circular(17)),
               child: Stack(fit: StackFit.expand, children: [
                 ReportPhoto(r, iconSize: 40),
-                Positioned(top: 8, left: 8, child: StatusChip(r.typeLabel)),
-                if (r.status == stDone)
-                  Positioned(top: 8, right: 8, child: StatusChip(r.status)),
                 Positioned(
+                  top: 8,
                   left: 8,
-                  bottom: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                        horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text(r.categoryLabel,
-                        style: const TextStyle(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: dark
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.white.withValues(alpha: 0.85),
+                        width: 1.1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isFound
+                              ? Icons.check_circle_rounded
+                              : Icons.search_off_rounded,
+                          size: 11.5,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          r.typeLabel,
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+                if (r.status == stDone)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: dark
+                            ? const Color(0xFF0F172A)
+                            : const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        r.status,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
               ]),
             ),
           ),

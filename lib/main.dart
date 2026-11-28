@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'auth_screens.dart';
 import 'core.dart';
+import 'device_notif.dart';
 import 'firebase_options.dart';
 import 'guard_screens.dart';
 import 'splash_screen.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await DeviceNotif.init();
 
   await settings.load();
   await UnesaLogoCache.ensureLoaded();
@@ -41,19 +43,53 @@ Future<void> main() async {
 
 TextTheme _buildCleanTextTheme(Brightness brightness) {
   final isDarkMode = brightness == Brightness.dark;
-  final primaryText = isDarkMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-  final secondaryText = isDarkMode ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
+  final primaryText =
+  isDarkMode ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+  final secondaryText =
+  isDarkMode ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
 
   return TextTheme(
-    headlineLarge: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.6, height: 1.2),
-    headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.5, height: 1.25),
-    titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: primaryText, letterSpacing: -0.3),
-    titleMedium: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: primaryText, letterSpacing: -0.2),
-    titleSmall: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: primaryText),
-    bodyLarge: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: primaryText, height: 1.45),
-    bodyMedium: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, color: secondaryText, height: 1.45),
-    bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: secondaryText, height: 1.4),
-    labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+    headlineLarge: TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w800,
+        color: primaryText,
+        letterSpacing: -0.6,
+        height: 1.2),
+    headlineMedium: TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w800,
+        color: primaryText,
+        letterSpacing: -0.5,
+        height: 1.25),
+    titleLarge: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: primaryText,
+        letterSpacing: -0.3),
+    titleMedium: TextStyle(
+        fontSize: 15.5,
+        fontWeight: FontWeight.w700,
+        color: primaryText,
+        letterSpacing: -0.2),
+    titleSmall:
+    TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: primaryText),
+    bodyLarge: TextStyle(
+        fontSize: 14.5,
+        fontWeight: FontWeight.w500,
+        color: primaryText,
+        height: 1.45),
+    bodyMedium: TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w400,
+        color: secondaryText,
+        height: 1.45),
+    bodySmall: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: secondaryText,
+        height: 1.4),
+    labelLarge:
+    const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.1),
   );
 }
 
@@ -103,7 +139,8 @@ class CampusFindApp extends StatelessWidget {
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: Color(0xFFDCE6F2)),
@@ -146,7 +183,8 @@ class CampusFindApp extends StatelessWidget {
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
               fillColor: const Color(0xFF111D30),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: Color(0xFF1E3250)),
@@ -157,7 +195,8 @@ class CampusFindApp extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFF22B8CF), width: 1.6),
+                borderSide:
+                const BorderSide(color: Color(0xFF22B8CF), width: 1.6),
               ),
             ),
           ),
@@ -170,9 +209,12 @@ class CampusFindApp extends StatelessWidget {
               child: AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-                  systemNavigationBarColor: dark ? const Color(0xFF09111E) : const Color(0xFFF1F5F9),
-                  systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+                  statusBarIconBrightness:
+                  dark ? Brightness.light : Brightness.dark,
+                  systemNavigationBarColor:
+                  dark ? const Color(0xFF09111E) : const Color(0xFFF1F5F9),
+                  systemNavigationBarIconBrightness:
+                  dark ? Brightness.light : Brightness.dark,
                 ),
                 child: SafeArea(
                   top: false,
@@ -232,7 +274,8 @@ class CampusFindApp extends StatelessWidget {
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
                                 colors: [
-                                  kNavyPrimary.withValues(alpha: dark ? 0.22 : 0.08),
+                                  kNavyPrimary
+                                      .withValues(alpha: dark ? 0.22 : 0.08),
                                   Colors.transparent,
                                 ],
                               ),
@@ -249,6 +292,7 @@ class CampusFindApp extends StatelessWidget {
           },
           home: CampusSplashScreen(
             nextScreen: initialTarget,
+            autoRedirect: store.isLoggedIn,
           ),
         );
       },

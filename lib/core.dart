@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'device_notif.dart';
 
 // Palet Warna Utama CampusFind UNESA
 const kNavyPrimary = Color(0xFF0B2058); // Biru Utama UNESA (Satpam / Institusi)
@@ -761,11 +762,40 @@ class Store extends ChangeNotifier {
       notifyListeners();
     });
 
+    bool firstNotifBatch = true;
+    final Set<String> shownPhoneNotifIds = {};
+
     _notifSub = _db.collection('notifs').snapshots().listen((snap) {
       final list = snap.docs
           .map((d) => AppNotif.fromFirestore(d.data(), d.id))
           .toList()
         ..sort((a, b) => b.time.compareTo(a.time));
+
+      final currentRecipient = email.trim().toLowerCase();
+
+      if (firstNotifBatch) {
+        firstNotifBatch = false;
+        for (final n in list) {
+          shownPhoneNotifIds.add(n.id);
+        }
+      } else {
+        for (final n in list) {
+          if (!shownPhoneNotifIds.contains(n.id)) {
+            shownPhoneNotifIds.add(n.id);
+            if (!n.read &&
+                currentRecipient.isNotEmpty &&
+                n.owner.trim().toLowerCase() == currentRecipient) {
+              lastNotif = n;
+              DeviceNotif.show(
+                id: n.id,
+                title: n.title,
+                body: n.message,
+              );
+            }
+          }
+        }
+      }
+
       notifs = list;
       notifyListeners();
     });

@@ -14,7 +14,7 @@ import 'profile_screen.dart';
 import 'sound.dart';
 import 'widgets.dart';
 
-/// Pelapor & satpam melihat detail lengkap (termasuk detail rahasia). Mahasiswa lain hanya detail publik.
+/// Pelapor & satpam melihat detail lengkap. Mahasiswa lain hanya detail publik.
 Widget detailFor(Report r) => (store.guard || r.owner == store.email)
     ? FullDetailScreen(r)
     : PublicDetailScreen(r);
@@ -787,6 +787,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   static const String _geminiKey = geminiApiKey;
 
+  String _formatDateTime(DateTime dt) {
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '${fmtDate(dt)} • $hh:$mm WIB';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -800,12 +806,12 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       pos = e.pos;
       photo = e.photo;
       date = e.date;
-      dateC.text = fmtDate(date);
+      dateC.text = _formatDateTime(date);
       _aiDetected = true;
       return;
     }
 
-    dateC.text = fmtDate(date);
+    dateC.text = _formatDateTime(date);
     final p = widget.prefill;
     if (p != null) {
       nameC.text = p.name;
@@ -813,6 +819,33 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       catC.text = p.categoryCustom;
       _aiDetected = true;
     }
+  }
+
+  Future<void> _pickLostDateTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: date,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(date),
+    );
+    if (!mounted) return;
+
+    setState(() {
+      date = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime?.hour ?? date.hour,
+        pickedTime?.minute ?? date.minute,
+      );
+      dateC.text = _formatDateTime(date);
+    });
   }
 
   void _parseDesc(String d) {
@@ -1032,19 +1065,25 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   }
 
   Future<void> _submit() async {
-    if (photo == null || photo!.isEmpty) {
+    final isFound = widget.editing != null
+        ? (widget.editing!.type == ReportType.ditemukan)
+        : widget.found;
+
+    if (isFound && (photo == null || photo!.isEmpty)) {
       _aiSnack('Unggah foto barang terlebih dahulu.');
       return;
     }
     if (!_form.currentState!.validate()) return;
 
     final finalName = nameC.text.trim().isEmpty
-        ? (widget.found ? 'Barang Ditemukan' : 'Barang Hilang')
+        ? (isFound ? 'Barang Ditemukan' : 'Barang Hilang')
         : nameC.text.trim();
     final finalCategory = category ?? 'Lainnya';
     descC.text = _composeDesc();
     final finalDesc = descC.text.trim().isEmpty
+        ? (isFound
         ? 'Dilaporkan melalui foto barang'
+        : 'Dilaporkan kehilangan barang')
         : descC.text.trim();
     final e = widget.editing;
 
@@ -1078,7 +1117,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
     final r = Report(
       id: store.nextReportId(),
-      type: widget.found ? ReportType.ditemukan : ReportType.hilang,
+      type: isFound ? ReportType.ditemukan : ReportType.hilang,
       name: finalName,
       category: finalCategory,
       categoryCustom: catC.text.trim(),
@@ -1117,6 +1156,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     final dark = isDark(context);
     final toskaAccent = dark ? const Color(0xFF22B8CF) : kToska;
 
+    // Penemu wajib unggah foto dulu; pelapor kehilangan langsung lihat form (foto opsional)
+    final showFields = !found || ((_aiDetected || _aiFailed) && !_aiLoading);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1135,7 +1177,15 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                sectionHeading(context, 'Foto Barang'),
+                sectionHeading(
+                    context, found ? 'Foto Barang' : 'Foto Barang (Opsional)'),
+                if (!found) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Unggah foto jika kamu memiliki fotonya (AI akan membantu mengisi detail otomatis).',
+                    style: TextStyle(fontSize: 12, color: mutedC(context)),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 PhotoBox(
                   path: photo,
@@ -1199,12 +1249,16 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     ),
                   ),
                 ],
-                if ((_aiDetected || _aiFailed) && !_aiLoading) ...[
+                if (showFields && !_aiLoading) ...[
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Icon(Icons.auto_awesome_rounded,
-                          size: 18, color: toskaAccent),
+                      Icon(
+                          _aiDetected
+                              ? Icons.auto_awesome_rounded
+                              : Icons.edit_note_rounded,
+                          size: 18,
+                          color: toskaAccent),
                       const SizedBox(width: 6),
                       Text(
                         _aiDetected ? 'Hasil Analisis AI' : 'Detail Barang',
@@ -1217,27 +1271,63 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                   Text(
                     _aiDetected
                         ? 'Periksa dan ubah jika ada yang kurang tepat.'
-                        : 'AI belum berhasil, silakan isi detail barang secara manual.',
+                        : (found
+                        ? 'AI belum berhasil, silakan isi detail barang secara manual.'
+                        : 'Deskripsikan barangmu sedetail mungkin agar mudah dikenali.'),
                     style: TextStyle(fontSize: 12, color: mutedC(context)),
                   ),
                   const SizedBox(height: 10),
-                  AppField('Nama Barang', 'Contoh: Boneka Harimau Kuning',
-                      controller: nameC, icon: Icons.inventory_2_outlined),
-                  AppField('Jenis Barang', 'Contoh: Boneka plushie',
-                      controller: jenisC, icon: Icons.category_outlined),
-                  AppField('Warna', 'Contoh: Kuning dan putih',
-                      controller: warnaC, icon: Icons.palette_outlined),
-                  AppField('Ciri-ciri',
-                      'Contoh: ada garis hitam, pipi merah muda',
-                      controller: ciriC,
-                      maxLines: 3,
-                      icon: Icons.fingerprint),
+                  AppField(
+                    'Nama Barang',
+                    'Contoh: Boneka Harimau Kuning',
+                    controller: nameC,
+                    icon: Icons.inventory_2_outlined,
+                    validator: found ? null : requiredField,
+                  ),
+                  AppField(
+                    'Jenis Barang',
+                    'Contoh: Boneka plushie',
+                    controller: jenisC,
+                    icon: Icons.category_outlined,
+                    validator: found ? null : requiredField,
+                  ),
+                  AppField(
+                    'Warna',
+                    'Contoh: Kuning dan putih',
+                    controller: warnaC,
+                    icon: Icons.palette_outlined,
+                    validator: found ? null : requiredField,
+                  ),
+                  AppField(
+                    'Ciri-ciri',
+                    found
+                        ? 'Contoh: ada garis hitam, pipi merah muda'
+                        : 'Sebutkan merek, stiker, goresan, atau kelengkapan barang',
+                    controller: ciriC,
+                    maxLines: 3,
+                    icon: Icons.fingerprint,
+                    validator: found ? null : requiredField,
+                  ),
                   AppDropdown(
                       'Kategori',
                       'Pilih kategori',
                       categories,
                       categories.contains(category) ? category : null,
                           (v) => setState(() => category = v)),
+                  if (!found) ...[
+                    const SizedBox(height: 16),
+                    AppField(
+                      'Kapan Terakhir Hilang',
+                      'Pilih tanggal & perkiraan jam terakhir terlihat',
+                      controller: dateC,
+                      readOnly: true,
+                      icon: Icons.event_available_outlined,
+                      suffix: Icon(Icons.calendar_month_rounded,
+                          color: toskaAccent),
+                      onTap: _pickLostDateTime,
+                      validator: requiredField,
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   AppDropdown(
                       'Pos Satpam',
@@ -1759,17 +1849,64 @@ class ClaimScreen extends StatefulWidget {
 
 class _ClaimScreenState extends State<ClaimScreen> {
   final _form = GlobalKey<FormState>();
-  final answerC = TextEditingController(), proofC = TextEditingController();
+  final answerC = TextEditingController(),
+      proofC = TextEditingController(),
+      lostTimeC = TextEditingController();
+  DateTime lostDate = DateTime.now();
   String? photo;
+
+  String _formatDateTime(DateTime dt) {
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '${fmtDate(dt)} • $hh:$mm WIB';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    lostTimeC.text = _formatDateTime(lostDate);
+  }
+
+  Future<void> _pickLostTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: lostDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(lostDate),
+    );
+    if (!mounted) return;
+
+    setState(() {
+      lostDate = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime?.hour ?? lostDate.hour,
+        pickedTime?.minute ?? lostDate.minute,
+      );
+      lostTimeC.text = _formatDateTime(lostDate);
+    });
+  }
 
   void _submit() {
     if (!_form.currentState!.validate()) return;
+    final extraProof = proofC.text.trim();
+    final combinedProof = extraProof.isEmpty
+        ? 'Perkiraan waktu hilang: ${lostTimeC.text}'
+        : 'Perkiraan waktu hilang: ${lostTimeC.text} • $extraProof';
+
     final c = Claim(
       id: store.nextClaimId(),
       reportId: widget.r.id,
       claimer: store.email,
       answer: answerC.text.trim(),
-      proof: proofC.text.trim(),
+      proof: combinedProof,
       photo: photo,
       date: DateTime.now(),
     );
@@ -1790,43 +1927,93 @@ class _ClaimScreenState extends State<ClaimScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-        title: const Text('Klaim Kepemilikan',
-            style: TextStyle(fontSize: 16))),
-    body: Form(
-      key: _form,
-      child: ListView(padding: const EdgeInsets.all(16), children: [
-        Text(widget.r.name,
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text('Verifikasi oleh satpam di ${widget.r.pos}.',
-            style: TextStyle(color: mutedC(context), fontSize: 12)),
-        const SizedBox(height: 16),
-        AppField(
-          'Detail Rahasia Barang',
-          'Sebutkan ciri tersembunyi yang hanya pemilik tahu',
-          controller: answerC,
-          maxLines: 3,
-          icon: Icons.lock_outline,
-          helper:
-          'Contoh: stiker di bagian bawah, isi di dalam, goresan khusus. Satpam akan mencocokkannya dengan laporan.',
-          validator: requiredField,
-        ),
-        AppField('Bukti Tambahan (opsional)',
-            'Merek, nomor seri, kapan & di mana hilang',
-            controller: proofC, maxLines: 2),
-        const Text('Foto Pendukung (opsional)',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        const SizedBox(height: 6),
-        PhotoBox(
-            path: photo, onPicked: (p) => setState(() => photo = p)),
-        const SizedBox(height: 20),
-        PrimaryButton('Kirim Klaim', _submit),
-      ]),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    final toskaAccent = dark ? const Color(0xFF22B8CF) : kToska;
+
+    return Scaffold(
+      appBar: AppBar(
+          title: const Text('Klaim Kepemilikan',
+              style: TextStyle(fontSize: 16))),
+      body: Form(
+        key: _form,
+        child: ListView(padding: const EdgeInsets.all(16), children: [
+          sectionHeading(context, 'Foto Pendukung (Opsional)'),
+          const SizedBox(height: 4),
+          Text(
+            'Unggah foto barang atau bukti pendukung lainnya jika ada.',
+            style: TextStyle(fontSize: 12, color: mutedC(context)),
+          ),
+          const SizedBox(height: 8),
+          PhotoBox(
+              path: photo, onPicked: (p) => setState(() => photo = p)),
+          const SizedBox(height: 16),
+          Text(widget.r.name,
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          AppField(
+            'Kapan Terakhir Hilang',
+            'Pilih tanggal & perkiraan jam terakhir terlihat',
+            controller: lostTimeC,
+            readOnly: true,
+            icon: Icons.event_available_outlined,
+            suffix: Icon(Icons.calendar_month_rounded, color: toskaAccent),
+            onTap: _pickLostTime,
+            validator: requiredField,
+          ),
+          AppField(
+            'Keterangan Kepemilikan & Ciri Barang',
+            'Jelaskan ciri fisik, merek, atau isi barang milikmu',
+            controller: answerC,
+            maxLines: 3,
+            icon: Icons.fact_check_outlined,
+            helper:
+            'Contoh: merek barang, stiker/gantungan, isi di dalam, atau kondisi khusus untuk dicocokkan satpam.',
+            validator: requiredField,
+          ),
+          AppField(
+            'Catatan Tambahan (opsional)',
+            'Info lain yang menguatkan bahwa barang ini milikmu',
+            controller: proofC,
+            maxLines: 2,
+          ),
+          const SizedBox(height: 6),
+          Text('Verifikasi pengambilan oleh satpam di ${widget.r.pos}.',
+              style: TextStyle(color: mutedC(context), fontSize: 12)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: toskaAccent.withValues(alpha: dark ? 0.14 : 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: toskaAccent.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_circle_outlined,
+                    size: 20, color: toskaAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Identitas pengklaim tercatat otomatis dari akun Google (${store.email}).',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: dark ? Colors.white : kNavyPrimary,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          PrimaryButton('Kirim Klaim', _submit),
+        ]),
+      ),
+    );
+  }
 }
 
 // -------------------------------------- detail lengkap (pelapor & satpam)

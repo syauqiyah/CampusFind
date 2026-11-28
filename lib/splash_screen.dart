@@ -255,7 +255,7 @@ class _CampusSplashScreenState extends State<CampusSplashScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B),
+                          color: const Color(0xFF1080A6),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
